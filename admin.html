@@ -30,6 +30,7 @@
     padding:22px 18px; text-align:center; border-bottom:1px solid var(--border);
   }
   .brand{font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--gold-bright); text-transform:uppercase;}
+  .logo-img{width:100px; height:auto; margin:0 auto 6px; display:block;}
   .sub{color:var(--muted); font-size:12px; margin-top:2px;}
 
   main{max-width:520px; margin:0 auto; padding:18px 14px;}
@@ -49,7 +50,7 @@
   .btn.ghost{background:transparent; border:1px solid var(--border); color:var(--gold-bright); text-transform:none; font-weight:600;}
   .btn.danger-outline{background:transparent; border:1px solid var(--danger); color:var(--danger); text-transform:none; font-weight:600;}
 
-  #app{display:none;}
+  #app{display:block;}
 
   .tabs{display:flex; gap:8px; margin-bottom:18px;}
   .tab{
@@ -99,14 +100,21 @@
   .loading{color:var(--muted); text-align:center; padding:30px 0;}
 
   .servicio-row{
-    display:flex; justify-content:space-between; align-items:center;
     background:var(--panel); border:1px solid var(--border); border-radius:12px;
     padding:12px 14px; margin-bottom:10px;
   }
   .servicio-row.inactivo{opacity:0.45;}
+  .servicio-top{display:flex; justify-content:space-between; align-items:center; gap:10px;}
   .servicio-row .nombre{font-weight:700; font-size:14px;}
   .servicio-row .meta{color:var(--muted); font-size:12px; margin-top:2px;}
-  .servicio-row .acciones{display:flex; gap:6px;}
+  .servicio-row .acciones{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;}
+  .servicio-edit{margin-top:12px; padding-top:12px; border-top:1px solid var(--border);}
+  .servicio-edit input{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:10px; color:var(--text); font-size:14px; margin-bottom:8px; font-family:inherit;
+  }
+  .servicio-edit-actions{display:flex; gap:8px;}
+  .servicio-edit-actions .btn{flex:1;}
 
   .new-servicio-form{
     background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
@@ -121,22 +129,16 @@
 <body>
 
 <header>
-  <div class="brand">Olam Barber</div>
+  <img src="logo.jpg" alt="Olam Barber" class="logo-img">
   <div class="sub">Panel administrativo</div>
 </header>
-
-<div id="login-screen">
-  <p style="color:var(--muted); font-size:14px;">Ingresa la clave de administrador</p>
-  <input type="password" id="input-clave" placeholder="Clave">
-  <button class="btn" onclick="intentarLogin()">Entrar</button>
-  <p id="login-error" style="color:var(--danger); font-size:13px; display:none; margin-top:10px;">Clave incorrecta</p>
-</div>
 
 <div id="app">
 <main>
   <div class="tabs">
     <div class="tab active" data-tab="agenda" onclick="cambiarTab('agenda')">Agenda</div>
     <div class="tab" data-tab="servicios" onclick="cambiarTab('servicios')">Servicios</div>
+    <div class="tab" data-tab="horarios" onclick="cambiarTab('horarios')">Bloqueos</div>
   </div>
 
   <!-- AGENDA -->
@@ -160,12 +162,26 @@
       <button class="btn small" style="width:100%;" onclick="agregarServicio()">Guardar servicio</button>
     </div>
   </div>
+
+  <!-- BLOQUEOS DE HORARIO -->
+  <div class="view" id="view-horarios">
+    <div class="new-servicio-form" style="margin-top:0;">
+      <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Bloquear horario</p>
+      <input type="date" id="bl-fecha">
+      <input type="time" id="bl-inicio" placeholder="Hora inicio">
+      <input type="time" id="bl-fin" placeholder="Hora fin">
+      <input type="text" id="bl-motivo" placeholder="Motivo (opcional, ej: Almuerzo)">
+      <button class="btn small" style="width:100%;" onclick="crearBloqueo()">Bloquear</button>
+    </div>
+    <p class="day-label" style="margin-top:20px;">Bloqueos de ese día</p>
+    <div id="bloqueos-lista"><div class="empty-note">Elige una fecha arriba para ver sus bloqueos.</div></div>
+  </div>
 </main>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getDatabase, ref, get, update, push, set } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { getDatabase, ref, get, update, push, set, remove } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBCvRlNBttV1yOXMydzY3GcKLpBMo41oaE",
@@ -179,19 +195,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const CLAVE_ADMIN = "olambarber2026"; // cámbiala cuando quieras
-
-window.intentarLogin = function(){
-  const val = document.getElementById("input-clave").value;
-  if (val === CLAVE_ADMIN){
-    document.getElementById("login-screen").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    cargarAgenda();
-    cargarServicios();
-  } else {
-    document.getElementById("login-error").style.display = "block";
-  }
-};
+cargarAgenda();
+cargarServicios();
+cargarBloqueos(document.getElementById("bl-fecha").value);
 
 window.cambiarTab = function(tab){
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
@@ -303,18 +309,54 @@ async function cargarServicios(){
   Object.entries(servicios).forEach(([id, s]) => {
     const row = document.createElement("div");
     row.className = "servicio-row" + (s.activo === false ? " inactivo" : "");
+    row.id = "servicio-" + id;
     row.innerHTML = `
-      <div>
-        <div class="nombre">${s.nombre}</div>
-        <div class="meta">${s.duracion} min · ${formatoMoneda(s.precio)}</div>
+      <div class="servicio-top">
+        <div>
+          <div class="nombre">${s.nombre}</div>
+          <div class="meta">${s.duracion} min · ${formatoMoneda(s.precio)}</div>
+        </div>
+        <div class="acciones">
+          <button class="btn small ghost" onclick="toggleEdicion('${id}')">Editar</button>
+          <button class="btn small ghost" onclick="toggleServicio('${id}', ${s.activo === false})">${s.activo === false ? "Activar" : "Desactivar"}</button>
+        </div>
       </div>
-      <div class="acciones">
-        <button class="btn small ghost" onclick="toggleServicio('${id}', ${s.activo === false})">${s.activo === false ? "Activar" : "Desactivar"}</button>
+      <div class="servicio-edit" id="edit-${id}" style="display:none;">
+        <input type="text" id="edit-nombre-${id}" value="${s.nombre}" placeholder="Nombre">
+        <input type="number" id="edit-precio-${id}" value="${s.precio}" placeholder="Precio">
+        <input type="number" id="edit-duracion-${id}" value="${s.duracion}" placeholder="Duración en minutos">
+        <div class="servicio-edit-actions">
+          <button class="btn small" onclick="guardarEdicion('${id}')">Guardar cambios</button>
+          <button class="btn small danger-outline" onclick="eliminarServicio('${id}', '${s.nombre.replace(/'/g,"")}')">Eliminar</button>
+        </div>
       </div>
     `;
     cont.appendChild(row);
   });
 }
+
+window.toggleEdicion = function(id){
+  const el = document.getElementById("edit-" + id);
+  el.style.display = el.style.display === "none" ? "block" : "none";
+};
+
+window.guardarEdicion = async function(id){
+  const nombre = document.getElementById(`edit-nombre-${id}`).value.trim();
+  const precio = Number(document.getElementById(`edit-precio-${id}`).value);
+  const duracion = Number(document.getElementById(`edit-duracion-${id}`).value);
+  if (!nombre || !precio || !duracion){
+    alert("Completa nombre, precio y duración.");
+    return;
+  }
+  await update(ref(db, "servicios/" + id), { nombre, precio, duracion });
+  cargarServicios();
+};
+
+window.eliminarServicio = async function(id, nombre){
+  if (!confirm(`¿Eliminar "${nombre}"? Esta acción no se puede deshacer.`)) return;
+  await remove(ref(db, "servicios/" + id));
+  cargarServicios();
+};
 
 window.toggleServicio = async function(id, activar){
   await update(ref(db, "servicios/" + id), { activo: activar });
@@ -335,6 +377,65 @@ window.agregarServicio = async function(){
   document.getElementById("ns-precio").value = "";
   document.getElementById("ns-duracion").value = "";
   cargarServicios();
+};
+
+// ---------- BLOQUEOS DE HORARIO ----------
+const inputFecha = document.getElementById("bl-fecha");
+inputFecha.value = new Date().toISOString().slice(0,10);
+inputFecha.addEventListener("change", () => cargarBloqueos(inputFecha.value));
+
+window.crearBloqueo = async function(){
+  const fecha = document.getElementById("bl-fecha").value;
+  const horaInicio = document.getElementById("bl-inicio").value;
+  const horaFin = document.getElementById("bl-fin").value;
+  const motivo = document.getElementById("bl-motivo").value.trim() || "Bloqueado";
+  if (!fecha || !horaInicio || !horaFin){
+    alert("Completa fecha, hora de inicio y hora de fin.");
+    return;
+  }
+  if (horaFin <= horaInicio){
+    alert("La hora de fin debe ser posterior a la hora de inicio.");
+    return;
+  }
+  const nuevaRef = push(ref(db, "bloqueos/" + fecha));
+  await set(nuevaRef, { horaInicio, horaFin, motivo });
+  document.getElementById("bl-inicio").value = "";
+  document.getElementById("bl-fin").value = "";
+  document.getElementById("bl-motivo").value = "";
+  cargarBloqueos(fecha);
+};
+
+async function cargarBloqueos(fecha){
+  const cont = document.getElementById("bloqueos-lista");
+  cont.innerHTML = '<div class="loading">Cargando…</div>';
+  const snap = await get(ref(db, "bloqueos/" + fecha));
+  if (!snap.exists()){
+    cont.innerHTML = '<div class="empty-note">No hay horarios bloqueados este día.</div>';
+    return;
+  }
+  const bloqueos = snap.val();
+  cont.innerHTML = "";
+  Object.entries(bloqueos).forEach(([id, b]) => {
+    const row = document.createElement("div");
+    row.className = "servicio-row";
+    row.innerHTML = `
+      <div class="servicio-top">
+        <div>
+          <div class="nombre">${b.horaInicio} — ${b.horaFin}</div>
+          <div class="meta">${b.motivo}</div>
+        </div>
+        <div class="acciones">
+          <button class="btn small danger-outline" onclick="eliminarBloqueo('${fecha}','${id}')">Eliminar</button>
+        </div>
+      </div>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+window.eliminarBloqueo = async function(fecha, id){
+  await remove(ref(db, `bloqueos/${fecha}/${id}`));
+  cargarBloqueos(fecha);
 };
 </script>
 </body>

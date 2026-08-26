@@ -50,6 +50,9 @@
     width:34px; height:34px; margin:0 auto 10px;
     color:var(--gold);
   }
+  .logo-img{
+    width:130px; height:auto; margin:0 auto 8px; display:block;
+  }
   .brand{
     font-size:38px;
     color:var(--gold-bright);
@@ -230,10 +233,7 @@
 <body>
 
 <header class="hero">
-  <svg class="crown-mark" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 8L7 11L12 4L17 11L21 8L19 18H5L3 8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-  </svg>
-  <div class="brand">Olam Barber</div>
+  <img src="logo.jpg" alt="Olam Barber" class="logo-img">
   <div class="tagline">Tu próximo corte está a un clic</div>
 </header>
 
@@ -313,22 +313,31 @@ window.__db = db;
 window.__dbRefs = { ref, push, get, set };
 
 // ---------- CONFIG DEL NEGOCIO ----------
-const HORARIO = {
-  apertura: "09:00",
-  cierre: "20:00",
-  diasCerrados: [0] // 0 = domingo
+// Horario por día de la semana (0=domingo, 1=lunes ... 6=sábado). null = cerrado.
+const HORARIO_POR_DIA = {
+  0: { apertura: "10:00", cierre: "17:00" }, // domingo
+  1: { apertura: "10:00", cierre: "21:00" }, // lunes
+  2: { apertura: "10:00", cierre: "21:00" }, // martes
+  3: { apertura: "10:00", cierre: "21:00" }, // miércoles
+  4: { apertura: "10:00", cierre: "21:00" }, // jueves
+  5: { apertura: "10:00", cierre: "21:00" }, // viernes
+  6: { apertura: "10:00", cierre: "21:00" }  // sábado
 };
 const INTERVALO_MIN = 30; // slots cada 30 min
 
 // ---------- SERVICIOS POR DEFECTO (se cargan a Firebase si no existen) ----------
 const SERVICIOS_DEFAULT = {
-  s1: { nombre: "Corte clásico", precio: 8000, duracion: 30, activo: true },
-  s2: { nombre: "Corte + barba", precio: 13000, duracion: 45, activo: true },
-  s3: { nombre: "Barba", precio: 5000, duracion: 20, activo: true }
+  s1: { nombre: "Perfilado de cejas", precio: 5000, duracion: 10, activo: true },
+  s2: { nombre: "Barba sola", precio: 8000, duracion: 20, activo: true },
+  s3: { nombre: "Corte clásico", precio: 10000, duracion: 30, activo: true },
+  s4: { nombre: "Corte degradado o en tendencia", precio: 12000, duracion: 45, activo: true },
+  s5: { nombre: "Corte + barba", precio: 16000, duracion: 60, activo: true },
+  s6: { nombre: "Corte + barba + cejas", precio: 18000, duracion: 60, activo: true }
 };
 
 let servicios = {};
 let citasDelDia = {};
+let bloqueosDelDia = {};
 let estado = { servicioId: null, fecha: null, hora: null };
 
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -364,7 +373,6 @@ function renderServicios(){
     div.innerHTML = `
       <div>
         <p class="service-name">${s.nombre}</p>
-        <p class="service-meta">${s.duracion} min</p>
       </div>
       <div class="service-price">${formatoMoneda(s.precio)}</div>
     `;
@@ -390,7 +398,7 @@ function irPaso(n){
   });
   if (n === 2){
     const s = servicios[estado.servicioId];
-    document.getElementById("servicio-elegido-label").textContent = `${s.nombre} · ${s.duracion} min · ${formatoMoneda(s.precio)}`;
+    document.getElementById("servicio-elegido-label").textContent = `${s.nombre} · ${formatoMoneda(s.precio)}`;
     renderFechas();
   }
 }
@@ -404,7 +412,7 @@ function renderFechas(){
     const d = new Date(hoy);
     d.setDate(hoy.getDate() + i);
     const diaSemana = d.getDay();
-    if (HORARIO.diasCerrados.includes(diaSemana)) continue;
+    if (!HORARIO_POR_DIA[diaSemana]) continue;
     const iso = d.toISOString().slice(0,10);
     if (!primerDiaValido) primerDiaValido = iso;
     const chip = document.createElement("div");
@@ -426,6 +434,8 @@ async function seleccionarFecha(iso){
 
   const snap = await get(ref(db, "citas/" + iso));
   citasDelDia = snap.exists() ? snap.val() : {};
+  const snapBloqueos = await get(ref(db, "bloqueos/" + iso));
+  bloqueosDelDia = snapBloqueos.exists() ? snapBloqueos.val() : {};
   renderSlots();
 }
 
@@ -444,19 +454,26 @@ function renderSlots(){
   grid.innerHTML = "";
   const servicio = servicios[estado.servicioId];
   const duracion = servicio.duracion;
-  const inicio = minutosDesde(HORARIO.apertura);
-  const fin = minutosDesde(HORARIO.cierre);
+  const diaSemana = new Date(estado.fecha + "T00:00:00").getDay();
+  const horarioHoy = HORARIO_POR_DIA[diaSemana];
+  const inicio = minutosDesde(horarioHoy.apertura);
+  const fin = minutosDesde(horarioHoy.cierre);
 
   const ocupados = Object.values(citasDelDia)
     .filter(c => c.estado !== "cancelada")
     .map(c => ({ ini: minutosDesde(c.hora), fin: minutosDesde(c.hora) + Number(c.duracion) }));
+
+  const bloqueos = Object.values(bloqueosDelDia)
+    .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
+
+  const ocupadosTotal = ocupados.concat(bloqueos);
 
   const esHoy = estado.fecha === new Date().toISOString().slice(0,10);
   const ahoraMin = new Date().getHours()*60 + new Date().getMinutes();
 
   let huboSlots = false;
   for (let t = inicio; t + duracion <= fin; t += INTERVALO_MIN){
-    const chocaConOcupado = ocupados.some(o => t < o.fin && (t+duracion) > o.ini);
+    const chocaConOcupado = ocupadosTotal.some(o => t < o.fin && (t+duracion) > o.ini);
     const yaPaso = esHoy && t <= ahoraMin;
     if (chocaConOcupado || yaPaso) continue;
     huboSlots = true;
@@ -490,7 +507,6 @@ window.irPaso = function(n){
       <div class="summary-row"><span class="label">Servicio</span><span class="value">${s.nombre}</span></div>
       <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(estado.fecha)}</span></div>
       <div class="summary-row"><span class="label">Hora</span><span class="value">${estado.hora}</span></div>
-      <div class="summary-row"><span class="label">Duración</span><span class="value">${s.duracion} min</span></div>
       <div class="summary-row"><span class="label">Precio</span><span class="value">${formatoMoneda(s.precio)}</span></div>
     `;
   }
