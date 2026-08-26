@@ -107,8 +107,13 @@
   .badge.completada{background:rgba(184,169,122,0.18); color:var(--muted);}
   .badge.cancelada{background:rgba(194,77,77,0.18); color:var(--danger);}
 
-  .cita-actions{display:flex; gap:8px; margin-top:12px;}
+  .cita-actions{display:flex; gap:8px; margin-top:8px;}
   .cita-actions .btn{flex:1;}
+  .btn.whatsapp{
+    display:block; width:100%; margin-top:12px;
+    background:rgba(76,154,106,0.15); border:1px solid var(--ok); color:#8fd6ab;
+    text-transform:none; font-weight:600; box-shadow:none;
+  }
 
   .empty-note{color:var(--muted); text-align:center; padding:40px 10px; font-size:14px;}
   .loading{color:var(--muted); text-align:center; padding:30px 0;}
@@ -317,6 +322,7 @@ async function cargarAgenda(){
           </div>
           <span class="badge ${c.estado}">${c.estado}</span>
         </div>
+        <button class="btn small whatsapp" onclick="recordarWhatsApp('${c.telefono}','${c.nombre.replace(/'/g,"")}','${c.servicioNombre.replace(/'/g,"")}','${fecha}','${c.hora}')">Recordar por WhatsApp</button>
         <div class="cita-actions">
           <button class="btn small ghost" onclick="marcarEstado('${fecha}','${id}','completada')">Completada</button>
           <button class="btn small danger-outline" onclick="marcarEstado('${fecha}','${id}','cancelada')">Cancelar</button>
@@ -399,6 +405,13 @@ function actualizarStats(todasFechas){
   document.getElementById("stat-semana").textContent = semana;
   document.getElementById("stat-ingresos").textContent = formatoMoneda(ingresos);
 }
+
+window.recordarWhatsApp = function(telefono, nombre, servicio, fecha, hora){
+  let numero = telefono.replace(/\D/g, "");
+  if (numero.length === 9 && numero.startsWith("9")) numero = "56" + numero;
+  const mensaje = `Hola ${nombre}! 👋 Te recordamos tu cita en *Olam Barber* el ${fechaLegible(fecha)} a las ${hora} para *${servicio}*. ¡Te esperamos! ✂️`;
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, "_blank");
+};
 
 window.marcarEstado = async function(fecha, id, nuevoEstado){
   await update(ref(db, `citas/${fecha}/${id}`), { estado: nuevoEstado });
