@@ -304,6 +304,7 @@ onValue(ref(db, "citas"), (snap) => {
   // Refrescamos las vistas si están abiertas, para que se vea al instante.
   if (document.getElementById("view-agenda").classList.contains("active")) cargarAgenda();
   if (document.getElementById("view-historial").classList.contains("active")) cargarHistorial();
+  if (document.getElementById("view-horarios").classList.contains("active")) renderSlotsBloqueo(document.getElementById("bl-fecha").value);
 });
 
 function aplanarCitas(data){
@@ -321,6 +322,7 @@ window.cambiarTab = function(tab){
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById("view-" + tab).classList.add("active");
   if (tab === "historial") cargarHistorial();
+  if (tab === "horarios") renderSlotsBloqueo(document.getElementById("bl-fecha").value);
 };
 
 function formatoMoneda(n){ return "$" + Number(n).toLocaleString("es-CL"); }
