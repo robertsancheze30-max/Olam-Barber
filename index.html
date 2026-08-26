@@ -100,6 +100,16 @@
     display:inline-block;
   }
   .section-sub{color:var(--muted); font-size:13px; margin:0 0 20px; letter-spacing:0.2px;}
+  .title-divider{
+    display:flex; align-items:center; gap:10px;
+    margin:6px 0 10px;
+    color:var(--gold);
+    font-size:13px;
+  }
+  .title-divider::before, .title-divider::after{
+    content:""; flex:1; height:1px;
+    background:linear-gradient(90deg, transparent, var(--gold-deep), transparent);
+  }
 
   .card{
     background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
@@ -110,7 +120,7 @@
   }
 
   .service-card{
-    display:flex; justify-content:space-between; align-items:center;
+    display:flex; align-items:center; gap:12px;
     cursor:pointer;
     border-left:2px solid var(--gold);
     border-bottom:2px solid var(--gold);
@@ -123,7 +133,17 @@
     background:linear-gradient(160deg, var(--panel-2) 0%, #1a1409 100%);
     box-shadow:-8px 8px 22px -8px rgba(212,175,55,0.7);
   }
-  .service-name{font-weight:700; font-size:16px; margin:0; letter-spacing:0.1px;}
+  .service-icon{
+    flex:0 0 auto;
+    width:42px; height:42px;
+    border-radius:50%;
+    border:1.5px solid var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--gold-bright);
+  }
+  .service-icon svg{width:22px; height:22px;}
+  .service-name{font-weight:700; font-size:15px; flex:1; letter-spacing:0.1px;}
+  .service-divider{width:1px; align-self:stretch; background:var(--border); margin:2px 0;}
   .service-meta{color:var(--muted); font-size:13px;}
   .service-price{
     font-family:'Bebas Neue', sans-serif;
@@ -271,6 +291,7 @@
   <!-- PASO 1: SERVICIOS -->
   <section class="screen active" id="screen-servicios">
     <p class="section-title">Elige tu servicio</p>
+    <div class="title-divider"><span>✂</span></div>
     <p class="section-sub">Precios exactos, sin sorpresas</p>
     <div id="lista-servicios">
       <div class="loading">Cargando servicios…</div>
@@ -380,6 +401,15 @@ async function cargarServicios(){
   renderServicios();
 }
 
+function iconoParaServicio(nombre){
+  const n = nombre.toLowerCase();
+  if (n.includes("ceja")) return `<path d="M4 15c2-4 5-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><path d="M6 9l3-2M18 9l-3-2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`;
+  if (n.includes("barba") && !n.includes("corte")) return `<circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M6 10c0 5 2.5 9 6 9s6-4 6-9" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>`;
+  if (n.includes("degrad") || n.includes("tendencia")) return `<path d="M12 3v4M12 21v-4M4.2 7.8l2.8 2.8M17 13.4l2.8 2.8M4.2 16.2L7 13.4M17 10.6l2.8-2.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" fill="none"/>`;
+  if (n.includes("corte") && n.includes("barba")) return `<circle cx="9" cy="7" r="2.4" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="9" cy="17" r="2.4" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M11 8.5L20 17M11 15.5L20 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`;
+  return `<circle cx="7" cy="7" r="2.2" stroke="currentColor" stroke-width="1.5" fill="none"/><circle cx="7" cy="17" r="2.2" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M9 8.5L20 19M9 15.5L14.5 10M20 5L11 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`;
+}
+
 function renderServicios(){
   const cont = document.getElementById("lista-servicios");
   cont.innerHTML = "";
@@ -393,9 +423,11 @@ function renderServicios(){
     div.className = "card service-card";
     div.dataset.id = id;
     div.innerHTML = `
-      <div>
-        <p class="service-name">${s.nombre}</p>
+      <div class="service-icon">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">${iconoParaServicio(s.nombre)}</svg>
       </div>
+      <div class="service-name">${s.nombre}</div>
+      <div class="service-divider"></div>
       <div class="service-price">${formatoMoneda(s.precio)}</div>
     `;
     div.onclick = () => seleccionarServicio(id);
