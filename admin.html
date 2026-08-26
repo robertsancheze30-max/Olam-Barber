@@ -69,18 +69,26 @@
   .view.active{display:block;}
 
   .stats-row{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:18px;}
-  .stat{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px 8px; text-align:center;}
+  .stat{
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
+    border-left:2px solid var(--gold); border-bottom:2px solid var(--gold);
+    box-shadow:-5px 5px 14px -10px rgba(212,175,55,0.55);
+    border-radius:12px; padding:12px 8px; text-align:center;
+  }
   .stat .num{font-family:'Bebas Neue',sans-serif; font-size:24px; color:var(--gold-bright);}
   .stat .lbl{font-size:11px; color:var(--muted); margin-top:2px;}
 
   .day-label{
     font-family:'Bebas Neue',sans-serif; font-size:18px; color:var(--gold-bright);
-    margin:18px 0 8px; text-transform:uppercase;
+    margin:18px 0 8px; text-transform:uppercase; letter-spacing:0.4px;
   }
   .day-label:first-child{margin-top:0;}
 
   .cita-card{
-    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
+    border-left:2px solid var(--gold); border-bottom:2px solid var(--gold);
+    box-shadow:-6px 6px 18px -10px rgba(212,175,55,0.55);
+    border-radius:var(--radius);
     padding:14px; margin-bottom:10px;
   }
   .cita-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
@@ -93,9 +101,9 @@
     font-size:10px; font-weight:800; text-transform:uppercase; padding:4px 8px;
     border-radius:20px; white-space:nowrap; letter-spacing:0.3px;
   }
-  .badge.pendiente{background:rgba(201,162,75,0.18); color:var(--pending);}
+  .badge.pendiente{background:rgba(212,175,55,0.18); color:var(--pending);}
   .badge.confirmada{background:rgba(76,154,106,0.18); color:var(--ok);}
-  .badge.completada{background:rgba(167,154,125,0.18); color:var(--muted);}
+  .badge.completada{background:rgba(184,169,122,0.18); color:var(--muted);}
   .badge.cancelada{background:rgba(194,77,77,0.18); color:var(--danger);}
 
   .cita-actions{display:flex; gap:8px; margin-top:12px;}
@@ -105,10 +113,13 @@
   .loading{color:var(--muted); text-align:center; padding:30px 0;}
 
   .servicio-row{
-    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
+    border-left:2px solid var(--gold); border-bottom:2px solid var(--gold);
+    box-shadow:-6px 6px 18px -10px rgba(212,175,55,0.55);
+    border-radius:12px;
     padding:12px 14px; margin-bottom:10px;
   }
-  .servicio-row.inactivo{opacity:0.45;}
+  .servicio-row.inactivo{opacity:0.45; box-shadow:none;}
   .servicio-top{display:flex; justify-content:space-between; align-items:center; gap:10px;}
   .servicio-row .nombre{font-weight:700; font-size:14px;}
   .servicio-row .meta{color:var(--muted); font-size:12px; margin-top:2px;}
@@ -122,7 +133,10 @@
   .servicio-edit-actions .btn{flex:1;}
 
   .new-servicio-form{
-    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
+    border-left:2px solid var(--gold); border-bottom:2px solid var(--gold);
+    box-shadow:-6px 6px 18px -10px rgba(212,175,55,0.55);
+    border-radius:var(--radius);
     padding:14px; margin-top:16px;
   }
   .new-servicio-form input{
@@ -264,7 +278,7 @@ async function cargarAgenda(){
           <div class="cita-hora">${c.hora}</div>
           <div class="cita-info">
             <p class="cita-nombre">${c.nombre}</p>
-            <p class="cita-servicio">${c.servicioNombre} · ${c.duracion} min · ${formatoMoneda(c.precio)}</p>
+            <p class="cita-servicio">${c.servicioNombre} · ${formatoMoneda(c.precio)}</p>
             <p class="cita-tel">${c.telefono}</p>
           </div>
           <span class="badge ${c.estado}">${c.estado}</span>
