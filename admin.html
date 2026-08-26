@@ -27,10 +27,10 @@
     font-family:'Manrope', sans-serif; min-height:100vh; padding-bottom:50px;
   }
   header{
-    padding:22px 18px; text-align:center; border-bottom:1px solid var(--border);
+    padding:0 0 18px; text-align:center; border-bottom:1px solid var(--border);
   }
+  .logo-img{width:100%; height:auto; display:block; margin:0 0 4px;}
   .brand{font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--gold-bright); text-transform:uppercase;}
-  .logo-img{width:100px; height:auto; margin:0 auto 6px; display:block;}
   .sub{color:var(--muted); font-size:12px; margin-top:2px;}
 
   main{max-width:520px; margin:0 auto; padding:18px 14px;}
@@ -161,6 +161,7 @@
       <input type="number" id="ns-duracion" placeholder="Duración en minutos (ej: 30)">
       <button class="btn small" style="width:100%;" onclick="agregarServicio()">Guardar servicio</button>
     </div>
+    <button class="btn small danger-outline" style="width:100%; margin-top:10px;" onclick="restablecerCatalogo()">Restablecer catálogo con servicios reales</button>
   </div>
 
   <!-- BLOQUEOS DE HORARIO -->
@@ -377,6 +378,21 @@ window.agregarServicio = async function(){
   document.getElementById("ns-precio").value = "";
   document.getElementById("ns-duracion").value = "";
   cargarServicios();
+};
+
+window.restablecerCatalogo = async function(){
+  if (!confirm("Esto reemplaza TODOS los servicios actuales por el catálogo real de Olam Barber (cejas, barba, cortes). ¿Continuar?")) return;
+  const catalogoReal = {
+    s1: { nombre: "Perfilado de cejas", precio: 5000, duracion: 10, activo: true },
+    s2: { nombre: "Barba sola", precio: 8000, duracion: 20, activo: true },
+    s3: { nombre: "Corte clásico", precio: 10000, duracion: 30, activo: true },
+    s4: { nombre: "Corte degradado o en tendencia", precio: 12000, duracion: 45, activo: true },
+    s5: { nombre: "Corte + barba", precio: 16000, duracion: 60, activo: true },
+    s6: { nombre: "Corte + barba + cejas", precio: 18000, duracion: 60, activo: true }
+  };
+  await set(ref(db, "servicios"), catalogoReal);
+  cargarServicios();
+  alert("Catálogo actualizado.");
 };
 
 // ---------- BLOQUEOS DE HORARIO ----------
