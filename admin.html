@@ -238,7 +238,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getDatabase, ref, get, update, push, set, remove } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { getDatabase, ref, get, update, push, set, remove, onValue } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBCvRlNBttV1yOXMydzY3GcKLpBMo41oaE",
@@ -254,6 +254,67 @@ const db = getDatabase(app);
 
 cargarAgenda();
 cargarServicios();
+
+// ---------- ALERTA EN TIEMPO REAL DE CANCELACIONES ----------
+if ("Notification" in window && Notification.permission === "default"){
+  Notification.requestPermission();
+}
+
+function sonidoAlerta(){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    osc.start();
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch(e){}
+}
+
+let estadoConocido = null;
+onValue(ref(db, "citas"), (snap) => {
+  const data = snap.exists() ? snap.val() : {};
+
+  if (estadoConocido === null){
+    // Primera carga: solo guardamos referencia, no alertamos.
+    estadoConocido = aplanarCitas(data);
+    return;
+  }
+
+  const actual = aplanarCitas(data);
+  Object.entries(actual).forEach(([key, c]) => {
+    const anterior = estadoConocido[key];
+    if (anterior && anterior.estado !== "cancelada" && c.estado === "cancelada"){
+      sonidoAlerta();
+      if (navigator.vibrate) navigator.vibrate([200,100,200]);
+      if ("Notification" in window && Notification.permission === "granted"){
+        new Notification("Cita cancelada ❌", {
+          body: `${c.nombre} canceló su cita del ${c.fecha} a las ${c.hora}.`
+        });
+      }
+    }
+  });
+  estadoConocido = actual;
+
+  // Refrescamos las vistas si están abiertas, para que se vea al instante.
+  if (document.getElementById("view-agenda").classList.contains("active")) cargarAgenda();
+  if (document.getElementById("view-historial").classList.contains("active")) cargarHistorial();
+});
+
+function aplanarCitas(data){
+  const plano = {};
+  Object.entries(data).forEach(([fecha, citas]) => {
+    Object.entries(citas).forEach(([id, c]) => {
+      plano[fecha + "/" + id] = { ...c, fecha };
+    });
+  });
+  return plano;
+}
 
 window.cambiarTab = function(tab){
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));

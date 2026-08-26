@@ -325,15 +325,26 @@
     <button class="btn" onclick="reiniciar()">Reservar otra cita</button>
   </section>
 
+  <!-- MIS CITAS -->
+  <section class="screen" id="screen-mis-citas">
+    <span class="back-link" onclick="irPasoInterno(1)">← Volver</span>
+    <p class="section-title">Mis citas</p>
+    <p class="section-sub">Ingresa tu teléfono para ver y cancelar tus citas</p>
+    <input type="tel" id="input-buscar-telefono" placeholder="Tu teléfono" maxlength="20">
+    <button class="btn" onclick="buscarMisCitas()">Buscar mis citas</button>
+    <div id="mis-citas-lista" style="margin-top:18px;"></div>
+  </section>
+
 </main>
 
 <div class="nav-bottom">
   <span class="nav-link" onclick="location.reload()">Inicio</span>
+  <span class="nav-link" onclick="irPasoInterno('mis-citas')">Mis citas</span>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getDatabase, ref, push, get, set } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { getDatabase, ref, push, get, set, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBCvRlNBttV1yOXMydzY3GcKLpBMo41oaE",
@@ -563,7 +574,7 @@ window.irPaso = function(n){
 };
 function irPasoInterno(n){
   document.querySelectorAll(".screen").forEach(sc => sc.classList.remove("active"));
-  const map = { 1:"screen-servicios", 2:"screen-fecha", 3:"screen-resumen", 4:"screen-confirmacion" };
+  const map = { 1:"screen-servicios", 2:"screen-fecha", 3:"screen-resumen", 4:"screen-confirmacion", "mis-citas":"screen-mis-citas" };
   document.getElementById(map[n]).classList.add("active");
   document.querySelectorAll(".step-dot").forEach(d => {
     const step = Number(d.dataset.step);
@@ -573,6 +584,65 @@ function irPasoInterno(n){
   if (n === 2) renderFechas();
   window.scrollTo(0,0);
 }
+window.irPasoInterno = irPasoInterno;
+
+window.buscarMisCitas = async function(){
+  const telInput = document.getElementById("input-buscar-telefono").value.trim();
+  const cont = document.getElementById("mis-citas-lista");
+  if (!telInput){
+    alert("Ingresa tu número de teléfono.");
+    return;
+  }
+  cont.innerHTML = '<div class="loading">Buscando…</div>';
+
+  const soloDigitos = telInput.replace(/\D/g, "");
+  const snap = await get(ref(db, "citas"));
+  if (!snap.exists()){
+    cont.innerHTML = '<div class="empty-note">No encontramos citas con ese número.</div>';
+    return;
+  }
+
+  const todasFechas = snap.val();
+  const hoyIso = new Date().toISOString().slice(0,10);
+  const resultados = [];
+  Object.entries(todasFechas).forEach(([fecha, citas]) => {
+    if (fecha < hoyIso) return;
+    Object.entries(citas).forEach(([id, c]) => {
+      const citaDigitos = (c.telefono || "").replace(/\D/g, "");
+      if (citaDigitos === soloDigitos && c.estado !== "cancelada"){
+        resultados.push({ fecha, id, ...c });
+      }
+    });
+  });
+  resultados.sort((a,b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora));
+
+  if (resultados.length === 0){
+    cont.innerHTML = '<div class="empty-note">No encontramos citas próximas con ese número.</div>';
+    return;
+  }
+
+  cont.innerHTML = "";
+  resultados.forEach(c => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="summary-row"><span class="label">Servicio</span><span class="value">${c.servicioNombre}</span></div>
+      <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(c.fecha)}</span></div>
+      <div class="summary-row"><span class="label">Hora</span><span class="value">${c.hora}</span></div>
+      <div class="summary-row"><span class="label">Estado</span><span class="value">${c.estado}</span></div>
+      <button class="btn secondary" style="margin-top:14px;" onclick="cancelarMiCita('${c.fecha}','${c.id}', this)">Cancelar esta cita</button>
+    `;
+    cont.appendChild(card);
+  });
+};
+
+window.cancelarMiCita = async function(fecha, id, btn){
+  if (!confirm("¿Estás seguro de que quieres cancelar tu cita?")) return;
+  btn.disabled = true;
+  btn.textContent = "Cancelando…";
+  await update(ref(db, `citas/${fecha}/${id}`), { estado: "cancelada" });
+  buscarMisCitas();
+};
 
 window.confirmarReserva = async function(){
   const nombre = document.getElementById("input-nombre").value.trim();
