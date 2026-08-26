@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Olam Barber — Panel Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0c;
+    --panel:#17140f;
+    --panel-2:#1f1b14;
+    --border:#2a2620;
+    --gold:#c9a24b;
+    --gold-bright:#e8c468;
+    --text:#f3eee1;
+    --muted:#a79a7d;
+    --ok:#4c9a6a;
+    --danger:#c24d4d;
+    --pending:#c9a24b;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Manrope', sans-serif; min-height:100vh; padding-bottom:50px;
+  }
+  header{
+    padding:22px 18px; text-align:center; border-bottom:1px solid var(--border);
+  }
+  .brand{font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--gold-bright); text-transform:uppercase;}
+  .sub{color:var(--muted); font-size:12px; margin-top:2px;}
+
+  main{max-width:520px; margin:0 auto; padding:18px 14px;}
+
+  #login-screen{max-width:340px; margin:60px auto; text-align:center; padding:0 20px;}
+  #login-screen input{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:10px;
+    padding:14px; color:var(--text); font-size:15px; margin:16px 0; text-align:center; font-family:inherit;
+  }
+  .btn{
+    display:block; width:100%; background:var(--gold); color:#181410; border:none;
+    border-radius:12px; padding:14px; font-weight:800; font-size:15px; text-transform:uppercase;
+    cursor:pointer; text-align:center;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn.small{padding:9px 14px; font-size:12px; letter-spacing:0.3px;}
+  .btn.ghost{background:transparent; border:1px solid var(--border); color:var(--gold-bright); text-transform:none; font-weight:600;}
+  .btn.danger-outline{background:transparent; border:1px solid var(--danger); color:var(--danger); text-transform:none; font-weight:600;}
+
+  #app{display:none;}
+
+  .tabs{display:flex; gap:8px; margin-bottom:18px;}
+  .tab{
+    flex:1; text-align:center; padding:10px 6px; border-radius:10px;
+    background:var(--panel); border:1px solid var(--border); color:var(--muted);
+    font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .tab.active{background:var(--panel-2); color:var(--gold-bright); border-color:var(--gold);}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .stats-row{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:18px;}
+  .stat{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px 8px; text-align:center;}
+  .stat .num{font-family:'Bebas Neue',sans-serif; font-size:24px; color:var(--gold-bright);}
+  .stat .lbl{font-size:11px; color:var(--muted); margin-top:2px;}
+
+  .day-label{
+    font-family:'Bebas Neue',sans-serif; font-size:18px; color:var(--gold-bright);
+    margin:18px 0 8px; text-transform:uppercase;
+  }
+  .day-label:first-child{margin-top:0;}
+
+  .cita-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; margin-bottom:10px;
+  }
+  .cita-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .cita-hora{font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--gold-bright); min-width:56px;}
+  .cita-info{flex:1;}
+  .cita-nombre{font-weight:700; font-size:15px; margin:0 0 2px;}
+  .cita-servicio{color:var(--muted); font-size:13px; margin:0;}
+  .cita-tel{color:var(--muted); font-size:12px; margin-top:4px;}
+  .badge{
+    font-size:10px; font-weight:800; text-transform:uppercase; padding:4px 8px;
+    border-radius:20px; white-space:nowrap; letter-spacing:0.3px;
+  }
+  .badge.pendiente{background:rgba(201,162,75,0.18); color:var(--pending);}
+  .badge.confirmada{background:rgba(76,154,106,0.18); color:var(--ok);}
+  .badge.completada{background:rgba(167,154,125,0.18); color:var(--muted);}
+  .badge.cancelada{background:rgba(194,77,77,0.18); color:var(--danger);}
+
+  .cita-actions{display:flex; gap:8px; margin-top:12px;}
+  .cita-actions .btn{flex:1;}
+
+  .empty-note{color:var(--muted); text-align:center; padding:40px 10px; font-size:14px;}
+  .loading{color:var(--muted); text-align:center; padding:30px 0;}
+
+  .servicio-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .servicio-row.inactivo{opacity:0.45;}
+  .servicio-row .nombre{font-weight:700; font-size:14px;}
+  .servicio-row .meta{color:var(--muted); font-size:12px; margin-top:2px;}
+  .servicio-row .acciones{display:flex; gap:6px;}
+
+  .new-servicio-form{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; margin-top:16px;
+  }
+  .new-servicio-form input{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:11px; color:var(--text); font-size:14px; margin-bottom:8px; font-family:inherit;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Olam Barber</div>
+  <div class="sub">Panel administrativo</div>
+</header>
+
+<div id="login-screen">
+  <p style="color:var(--muted); font-size:14px;">Ingresa la clave de administrador</p>
+  <input type="password" id="input-clave" placeholder="Clave">
+  <button class="btn" onclick="intentarLogin()">Entrar</button>
+  <p id="login-error" style="color:var(--danger); font-size:13px; display:none; margin-top:10px;">Clave incorrecta</p>
+</div>
+
+<div id="app">
+<main>
+  <div class="tabs">
+    <div class="tab active" data-tab="agenda" onclick="cambiarTab('agenda')">Agenda</div>
+    <div class="tab" data-tab="servicios" onclick="cambiarTab('servicios')">Servicios</div>
+  </div>
+
+  <!-- AGENDA -->
+  <div class="view active" id="view-agenda">
+    <div class="stats-row">
+      <div class="stat"><div class="num" id="stat-hoy">0</div><div class="lbl">Hoy</div></div>
+      <div class="stat"><div class="num" id="stat-semana">0</div><div class="lbl">Esta semana</div></div>
+      <div class="stat"><div class="num" id="stat-ingresos">$0</div><div class="lbl">Ingresos (7 días)</div></div>
+    </div>
+    <div id="agenda-lista"><div class="loading">Cargando citas…</div></div>
+  </div>
+
+  <!-- SERVICIOS -->
+  <div class="view" id="view-servicios">
+    <div id="servicios-lista"><div class="loading">Cargando servicios…</div></div>
+    <div class="new-servicio-form">
+      <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Agregar servicio</p>
+      <input type="text" id="ns-nombre" placeholder="Nombre (ej: Corte clásico)">
+      <input type="number" id="ns-precio" placeholder="Precio (ej: 8000)">
+      <input type="number" id="ns-duracion" placeholder="Duración en minutos (ej: 30)">
+      <button class="btn small" style="width:100%;" onclick="agregarServicio()">Guardar servicio</button>
+    </div>
+  </div>
+</main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getDatabase, ref, get, update, push, set } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBCvRlNBttV1yOXMydzY3GcKLpBMo41oaE",
+  authDomain: "olam-barber.firebaseapp.com",
+  databaseURL: "https://olam-barber-default-rtdb.firebaseio.com",
+  projectId: "olam-barber",
+  storageBucket: "olam-barber.firebasestorage.app",
+  messagingSenderId: "242130303381",
+  appId: "1:242130303381:web:30b1ffbe8e55dae4329e9c"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const CLAVE_ADMIN = "olambarber2026"; // cámbiala cuando quieras
+
+window.intentarLogin = function(){
+  const val = document.getElementById("input-clave").value;
+  if (val === CLAVE_ADMIN){
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    cargarAgenda();
+    cargarServicios();
+  } else {
+    document.getElementById("login-error").style.display = "block";
+  }
+};
+
+window.cambiarTab = function(tab){
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-" + tab).classList.add("active");
+};
+
+function formatoMoneda(n){ return "$" + Number(n).toLocaleString("es-CL"); }
+const DIAS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+function fechaLegible(iso){
+  const d = new Date(iso + "T00:00:00");
+  return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`;
+}
+function isoDeHoyMasDias(n){
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0,10);
+}
+
+async function cargarAgenda(){
+  const cont = document.getElementById("agenda-lista");
+  const snap = await get(ref(db, "citas"));
+  if (!snap.exists()){
+    cont.innerHTML = '<div class="empty-note">Aún no hay citas reservadas.</div>';
+    actualizarStats({});
+    return;
+  }
+  const todasFechas = snap.val();
+  actualizarStats(todasFechas);
+
+  const hoyIso = isoDeHoyMasDias(0);
+  const fechasOrdenadas = Object.keys(todasFechas).filter(f => f >= hoyIso).sort();
+
+  if (fechasOrdenadas.length === 0){
+    cont.innerHTML = '<div class="empty-note">No hay citas próximas.</div>';
+    return;
+  }
+
+  cont.innerHTML = "";
+  fechasOrdenadas.forEach(fecha => {
+    const citas = todasFechas[fecha];
+    const idsOrdenados = Object.keys(citas).sort((a,b) => citas[a].hora.localeCompare(citas[b].hora));
+    if (idsOrdenados.length === 0) return;
+
+    const label = document.createElement("div");
+    label.className = "day-label";
+    label.textContent = fecha === hoyIso ? "Hoy · " + fechaLegible(fecha) : fechaLegible(fecha);
+    cont.appendChild(label);
+
+    idsOrdenados.forEach(id => {
+      const c = citas[id];
+      const card = document.createElement("div");
+      card.className = "cita-card";
+      card.innerHTML = `
+        <div class="cita-top">
+          <div class="cita-hora">${c.hora}</div>
+          <div class="cita-info">
+            <p class="cita-nombre">${c.nombre}</p>
+            <p class="cita-servicio">${c.servicioNombre} · ${c.duracion} min · ${formatoMoneda(c.precio)}</p>
+            <p class="cita-tel">${c.telefono}</p>
+          </div>
+          <span class="badge ${c.estado}">${c.estado}</span>
+        </div>
+        ${c.estado !== "completada" && c.estado !== "cancelada" ? `
+        <div class="cita-actions">
+          <button class="btn small ghost" onclick="marcarEstado('${fecha}','${id}','completada')">Completada</button>
+          <button class="btn small danger-outline" onclick="marcarEstado('${fecha}','${id}','cancelada')">Cancelar</button>
+        </div>` : ""}
+      `;
+      cont.appendChild(card);
+    });
+  });
+}
+
+function actualizarStats(todasFechas){
+  const hoyIso = isoDeHoyMasDias(0);
+  let hoy = 0, semana = 0, ingresos = 0;
+  const fechaLimite = isoDeHoyMasDias(7);
+  Object.keys(todasFechas).forEach(fecha => {
+    if (fecha < hoyIso || fecha >= fechaLimite) return;
+    Object.values(todasFechas[fecha]).forEach(c => {
+      if (c.estado === "cancelada") return;
+      if (fecha === hoyIso) hoy++;
+      semana++;
+      ingresos += Number(c.precio || 0);
+    });
+  });
+  document.getElementById("stat-hoy").textContent = hoy;
+  document.getElementById("stat-semana").textContent = semana;
+  document.getElementById("stat-ingresos").textContent = formatoMoneda(ingresos);
+}
+
+window.marcarEstado = async function(fecha, id, nuevoEstado){
+  await update(ref(db, `citas/${fecha}/${id}`), { estado: nuevoEstado });
+  cargarAgenda();
+};
+
+async function cargarServicios(){
+  const cont = document.getElementById("servicios-lista");
+  const snap = await get(ref(db, "servicios"));
+  if (!snap.exists()){
+    cont.innerHTML = '<div class="empty-note">No hay servicios cargados aún.</div>';
+    return;
+  }
+  const servicios = snap.val();
+  cont.innerHTML = "";
+  Object.entries(servicios).forEach(([id, s]) => {
+    const row = document.createElement("div");
+    row.className = "servicio-row" + (s.activo === false ? " inactivo" : "");
+    row.innerHTML = `
+      <div>
+        <div class="nombre">${s.nombre}</div>
+        <div class="meta">${s.duracion} min · ${formatoMoneda(s.precio)}</div>
+      </div>
+      <div class="acciones">
+        <button class="btn small ghost" onclick="toggleServicio('${id}', ${s.activo === false})">${s.activo === false ? "Activar" : "Desactivar"}</button>
+      </div>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+window.toggleServicio = async function(id, activar){
+  await update(ref(db, "servicios/" + id), { activo: activar });
+  cargarServicios();
+};
+
+window.agregarServicio = async function(){
+  const nombre = document.getElementById("ns-nombre").value.trim();
+  const precio = Number(document.getElementById("ns-precio").value);
+  const duracion = Number(document.getElementById("ns-duracion").value);
+  if (!nombre || !precio || !duracion){
+    alert("Completa nombre, precio y duración.");
+    return;
+  }
+  const nuevaRef = push(ref(db, "servicios"));
+  await set(nuevaRef, { nombre, precio, duracion, activo: true });
+  document.getElementById("ns-nombre").value = "";
+  document.getElementById("ns-precio").value = "";
+  document.getElementById("ns-duracion").value = "";
+  cargarServicios();
+};
+</script>
+</body>
+</html>

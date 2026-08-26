@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Olam Barber — Reserva tu corte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0b0c;
+    --panel:#17140f;
+    --panel-2:#1f1b14;
+    --border:#2a2620;
+    --gold:#c9a24b;
+    --gold-bright:#e8c468;
+    --text:#f3eee1;
+    --muted:#a79a7d;
+    --ok:#4c9a6a;
+    --danger:#c24d4d;
+    --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(201,162,75,0.08), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Manrope', sans-serif;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  .display{font-family:'Bebas Neue', sans-serif; letter-spacing:0.5px;}
+
+  header.hero{
+    padding:36px 20px 28px;
+    text-align:center;
+    border-bottom:1px solid var(--border);
+    position:relative;
+    overflow:hidden;
+  }
+  header.hero::before{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(400px 200px at 50% 0%, rgba(201,162,75,0.15), transparent 70%);
+    pointer-events:none;
+  }
+  .crown-mark{
+    width:34px; height:34px; margin:0 auto 10px;
+    color:var(--gold);
+  }
+  .brand{
+    font-size:38px;
+    color:var(--gold-bright);
+    text-transform:uppercase;
+    line-height:1;
+  }
+  .tagline{
+    color:var(--muted);
+    font-size:14px;
+    margin-top:6px;
+    letter-spacing:0.3px;
+  }
+
+  main{max-width:480px; margin:0 auto; padding:20px 16px;}
+
+  .steps{
+    display:flex; justify-content:center; gap:10px;
+    margin-bottom:22px;
+  }
+  .step-dot{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--border);
+    transition:background .25s, transform .25s;
+  }
+  .step-dot.active{background:var(--gold); transform:scale(1.25);}
+  .step-dot.done{background:var(--gold); opacity:0.5;}
+
+  .screen{display:none;}
+  .screen.active{display:block; animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .section-title{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:26px;
+    color:var(--gold-bright);
+    letter-spacing:0.5px;
+    margin:0 0 4px;
+  }
+  .section-sub{color:var(--muted); font-size:13px; margin:0 0 18px;}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:12px;
+  }
+
+  .service-card{
+    display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer;
+    transition:border-color .2s, transform .15s;
+  }
+  .service-card:active{transform:scale(0.98);}
+  .service-card.selected{border-color:var(--gold); background:var(--panel-2);}
+  .service-name{font-weight:700; font-size:16px; margin:0 0 4px;}
+  .service-meta{color:var(--muted); font-size:13px;}
+  .service-price{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:22px;
+    color:var(--gold-bright);
+    white-space:nowrap;
+    margin-left:12px;
+  }
+
+  .date-scroll{
+    display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; margin-bottom:18px;
+    scrollbar-width:none;
+  }
+  .date-scroll::-webkit-scrollbar{display:none;}
+  .date-chip{
+    flex:0 0 auto;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 14px;
+    text-align:center;
+    cursor:pointer;
+    min-width:58px;
+  }
+  .date-chip.selected{border-color:var(--gold); background:var(--panel-2);}
+  .date-chip .dow{font-size:11px; color:var(--muted); text-transform:uppercase;}
+  .date-chip .num{font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--text);}
+
+  .slots-grid{
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;
+  }
+  .slot{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 6px;
+    text-align:center;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .slot.selected{background:var(--gold); color:#181410; border-color:var(--gold);}
+  .slot.disabled{opacity:0.25; pointer-events:none;}
+
+  .empty-note{color:var(--muted); font-size:14px; text-align:center; padding:24px 10px;}
+
+  .summary-row{
+    display:flex; justify-content:space-between;
+    padding:10px 0;
+    border-bottom:1px solid var(--border);
+    font-size:14px;
+  }
+  .summary-row:last-child{border-bottom:none;}
+  .summary-row .label{color:var(--muted);}
+  .summary-row .value{font-weight:700;}
+
+  input[type=text], input[type=tel]{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px;
+    color:var(--text);
+    font-size:15px;
+    font-family:inherit;
+    margin-bottom:12px;
+  }
+  input::placeholder{color:var(--muted);}
+  input:focus{outline:2px solid var(--gold); outline-offset:1px;}
+
+  .btn{
+    display:block; width:100%;
+    background:var(--gold);
+    color:#181410;
+    border:none;
+    border-radius:12px;
+    padding:16px;
+    font-size:16px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    cursor:pointer;
+    text-align:center;
+    transition:transform .15s, background .2s;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn:disabled{opacity:0.35; pointer-events:none;}
+  .btn.secondary{
+    background:transparent;
+    color:var(--gold-bright);
+    border:1px solid var(--border);
+    text-transform:none;
+    font-weight:600;
+    margin-top:10px;
+  }
+  .btn-row{display:flex; gap:10px; margin-top:18px;}
+  .btn-row .btn{margin-top:0;}
+  .back-link{
+    color:var(--muted); font-size:13px; margin-bottom:14px; cursor:pointer;
+    display:inline-block;
+  }
+
+  .confirm-check{
+    width:64px; height:64px; margin:0 auto 16px;
+    border-radius:50%;
+    background:rgba(76,154,106,0.15);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .confirm-check svg{width:30px; height:30px; color:var(--ok);}
+  .confirm-title{text-align:center; font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--gold-bright); margin-bottom:6px;}
+  .confirm-sub{text-align:center; color:var(--muted); font-size:14px; margin-bottom:22px;}
+
+  .nav-bottom{
+    max-width:480px; margin:24px auto 0; padding:0 16px;
+    display:flex; justify-content:center; gap:24px;
+  }
+  .nav-link{color:var(--muted); font-size:13px; text-decoration:underline; cursor:pointer;}
+
+  .loading{text-align:center; color:var(--muted); padding:30px 0; font-size:14px;}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="crown-mark" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 8L7 11L12 4L17 11L21 8L19 18H5L3 8Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+  </svg>
+  <div class="brand">Olam Barber</div>
+  <div class="tagline">Tu próximo corte está a un clic</div>
+</header>
+
+<main>
+
+  <div class="steps" id="steps">
+    <div class="step-dot" data-step="1"></div>
+    <div class="step-dot" data-step="2"></div>
+    <div class="step-dot" data-step="3"></div>
+    <div class="step-dot" data-step="4"></div>
+  </div>
+
+  <!-- PASO 1: SERVICIOS -->
+  <section class="screen active" id="screen-servicios">
+    <p class="section-title">Elige tu servicio</p>
+    <p class="section-sub">Precios y duración exactos</p>
+    <div id="lista-servicios">
+      <div class="loading">Cargando servicios…</div>
+    </div>
+  </section>
+
+  <!-- PASO 2: FECHA Y HORA -->
+  <section class="screen" id="screen-fecha">
+    <span class="back-link" onclick="irPaso(1)">← Cambiar servicio</span>
+    <p class="section-title">Elige día y hora</p>
+    <p class="section-sub" id="servicio-elegido-label"></p>
+    <div class="date-scroll" id="date-scroll"></div>
+    <div class="slots-grid" id="slots-grid"></div>
+  </section>
+
+  <!-- PASO 3: DATOS + RESUMEN -->
+  <section class="screen" id="screen-resumen">
+    <span class="back-link" onclick="irPaso(2)">← Cambiar horario</span>
+    <p class="section-title">Confirma tu cita</p>
+    <div class="card" id="resumen-card"></div>
+    <input type="text" id="input-nombre" placeholder="Tu nombre completo" maxlength="50">
+    <input type="tel" id="input-telefono" placeholder="Tu teléfono" maxlength="20">
+    <button class="btn" id="btn-confirmar" onclick="confirmarReserva()">Confirmar cita</button>
+  </section>
+
+  <!-- PASO 4: CONFIRMACION -->
+  <section class="screen" id="screen-confirmacion">
+    <div class="confirm-check">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <p class="confirm-title">¡Cita reservada!</p>
+    <p class="confirm-sub">Te esperamos, no faltes ✂️</p>
+    <div class="card" id="resumen-final-card"></div>
+    <button class="btn" onclick="reiniciar()">Reservar otra cita</button>
+  </section>
+
+</main>
+
+<div class="nav-bottom">
+  <span class="nav-link" onclick="location.reload()">Inicio</span>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import { getDatabase, ref, push, get, set } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBCvRlNBttV1yOXMydzY3GcKLpBMo41oaE",
+  authDomain: "olam-barber.firebaseapp.com",
+  databaseURL: "https://olam-barber-default-rtdb.firebaseio.com",
+  projectId: "olam-barber",
+  storageBucket: "olam-barber.firebasestorage.app",
+  messagingSenderId: "242130303381",
+  appId: "1:242130303381:web:30b1ffbe8e55dae4329e9c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+window.__db = db;
+window.__dbRefs = { ref, push, get, set };
+
+// ---------- CONFIG DEL NEGOCIO ----------
+const HORARIO = {
+  apertura: "09:00",
+  cierre: "20:00",
+  diasCerrados: [0] // 0 = domingo
+};
+const INTERVALO_MIN = 30; // slots cada 30 min
+
+// ---------- SERVICIOS POR DEFECTO (se cargan a Firebase si no existen) ----------
+const SERVICIOS_DEFAULT = {
+  s1: { nombre: "Corte clásico", precio: 8000, duracion: 30, activo: true },
+  s2: { nombre: "Corte + barba", precio: 13000, duracion: 45, activo: true },
+  s3: { nombre: "Barba", precio: 5000, duracion: 20, activo: true }
+};
+
+let servicios = {};
+let citasDelDia = {};
+let estado = { servicioId: null, fecha: null, hora: null };
+
+const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+function formatoMoneda(n){
+  return "$" + Number(n).toLocaleString("es-CL");
+}
+
+async function cargarServicios(){
+  const snap = await get(ref(db, "servicios"));
+  if (snap.exists()){
+    servicios = snap.val();
+  } else {
+    servicios = SERVICIOS_DEFAULT;
+    await set(ref(db, "servicios"), SERVICIOS_DEFAULT);
+  }
+  renderServicios();
+}
+
+function renderServicios(){
+  const cont = document.getElementById("lista-servicios");
+  cont.innerHTML = "";
+  const activos = Object.entries(servicios).filter(([id, s]) => s.activo !== false);
+  if (activos.length === 0){
+    cont.innerHTML = '<div class="empty-note">No hay servicios disponibles por ahora.</div>';
+    return;
+  }
+  activos.forEach(([id, s]) => {
+    const div = document.createElement("div");
+    div.className = "card service-card";
+    div.dataset.id = id;
+    div.innerHTML = `
+      <div>
+        <p class="service-name">${s.nombre}</p>
+        <p class="service-meta">${s.duracion} min</p>
+      </div>
+      <div class="service-price">${formatoMoneda(s.precio)}</div>
+    `;
+    div.onclick = () => seleccionarServicio(id);
+    cont.appendChild(div);
+  });
+}
+
+function seleccionarServicio(id){
+  estado.servicioId = id;
+  document.querySelectorAll(".service-card").forEach(c => c.classList.toggle("selected", c.dataset.id === id));
+  setTimeout(() => irPaso(2), 150);
+}
+
+function irPaso(n){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  const map = { 1:"screen-servicios", 2:"screen-fecha", 3:"screen-resumen", 4:"screen-confirmacion" };
+  document.getElementById(map[n]).classList.add("active");
+  document.querySelectorAll(".step-dot").forEach(d => {
+    const step = Number(d.dataset.step);
+    d.classList.toggle("active", step === n);
+    d.classList.toggle("done", step < n);
+  });
+  if (n === 2){
+    const s = servicios[estado.servicioId];
+    document.getElementById("servicio-elegido-label").textContent = `${s.nombre} · ${s.duracion} min · ${formatoMoneda(s.precio)}`;
+    renderFechas();
+  }
+}
+
+function renderFechas(){
+  const cont = document.getElementById("date-scroll");
+  cont.innerHTML = "";
+  const hoy = new Date();
+  let primerDiaValido = null;
+  for (let i=0; i<14; i++){
+    const d = new Date(hoy);
+    d.setDate(hoy.getDate() + i);
+    const diaSemana = d.getDay();
+    if (HORARIO.diasCerrados.includes(diaSemana)) continue;
+    const iso = d.toISOString().slice(0,10);
+    if (!primerDiaValido) primerDiaValido = iso;
+    const chip = document.createElement("div");
+    chip.className = "date-chip";
+    chip.dataset.fecha = iso;
+    chip.innerHTML = `<div class="dow">${DIAS[diaSemana]}</div><div class="num">${d.getDate()}</div>`;
+    chip.onclick = () => seleccionarFecha(iso);
+    cont.appendChild(chip);
+  }
+  if (primerDiaValido) seleccionarFecha(primerDiaValido);
+}
+
+async function seleccionarFecha(iso){
+  estado.fecha = iso;
+  estado.hora = null;
+  document.querySelectorAll(".date-chip").forEach(c => c.classList.toggle("selected", c.dataset.fecha === iso));
+  const grid = document.getElementById("slots-grid");
+  grid.innerHTML = '<div class="loading">Buscando horas libres…</div>';
+
+  const snap = await get(ref(db, "citas/" + iso));
+  citasDelDia = snap.exists() ? snap.val() : {};
+  renderSlots();
+}
+
+function minutosDesde(hhmm){
+  const [h,m] = hhmm.split(":").map(Number);
+  return h*60 + m;
+}
+function minutosAHHMM(min){
+  const h = Math.floor(min/60).toString().padStart(2,"0");
+  const m = (min%60).toString().padStart(2,"0");
+  return `${h}:${m}`;
+}
+
+function renderSlots(){
+  const grid = document.getElementById("slots-grid");
+  grid.innerHTML = "";
+  const servicio = servicios[estado.servicioId];
+  const duracion = servicio.duracion;
+  const inicio = minutosDesde(HORARIO.apertura);
+  const fin = minutosDesde(HORARIO.cierre);
+
+  const ocupados = Object.values(citasDelDia)
+    .filter(c => c.estado !== "cancelada")
+    .map(c => ({ ini: minutosDesde(c.hora), fin: minutosDesde(c.hora) + Number(c.duracion) }));
+
+  const esHoy = estado.fecha === new Date().toISOString().slice(0,10);
+  const ahoraMin = new Date().getHours()*60 + new Date().getMinutes();
+
+  let huboSlots = false;
+  for (let t = inicio; t + duracion <= fin; t += INTERVALO_MIN){
+    const chocaConOcupado = ocupados.some(o => t < o.fin && (t+duracion) > o.ini);
+    const yaPaso = esHoy && t <= ahoraMin;
+    if (chocaConOcupado || yaPaso) continue;
+    huboSlots = true;
+    const btn = document.createElement("div");
+    btn.className = "slot";
+    btn.textContent = minutosAHHMM(t);
+    btn.onclick = () => seleccionarHora(minutosAHHMM(t), btn);
+    grid.appendChild(btn);
+  }
+  if (!huboSlots){
+    grid.innerHTML = '<div class="empty-note">No quedan horas disponibles este día. Prueba otra fecha.</div>';
+  }
+}
+
+function seleccionarHora(hora, el){
+  estado.hora = hora;
+  document.querySelectorAll(".slot").forEach(s => s.classList.remove("selected"));
+  el.classList.add("selected");
+  setTimeout(() => irPaso(3), 150);
+}
+
+function fechaLegible(iso){
+  const d = new Date(iso + "T00:00:00");
+  return `${DIAS[d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`;
+}
+
+window.irPaso = function(n){
+  if (n === 3){
+    const s = servicios[estado.servicioId];
+    document.getElementById("resumen-card").innerHTML = `
+      <div class="summary-row"><span class="label">Servicio</span><span class="value">${s.nombre}</span></div>
+      <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(estado.fecha)}</span></div>
+      <div class="summary-row"><span class="label">Hora</span><span class="value">${estado.hora}</span></div>
+      <div class="summary-row"><span class="label">Duración</span><span class="value">${s.duracion} min</span></div>
+      <div class="summary-row"><span class="label">Precio</span><span class="value">${formatoMoneda(s.precio)}</span></div>
+    `;
+  }
+  irPasoInterno(n);
+};
+function irPasoInterno(n){
+  document.querySelectorAll(".screen").forEach(sc => sc.classList.remove("active"));
+  const map = { 1:"screen-servicios", 2:"screen-fecha", 3:"screen-resumen", 4:"screen-confirmacion" };
+  document.getElementById(map[n]).classList.add("active");
+  document.querySelectorAll(".step-dot").forEach(d => {
+    const step = Number(d.dataset.step);
+    d.classList.toggle("active", step === n);
+    d.classList.toggle("done", step < n);
+  });
+  if (n === 2) renderFechas();
+  window.scrollTo(0,0);
+}
+
+window.confirmarReserva = async function(){
+  const nombre = document.getElementById("input-nombre").value.trim();
+  const telefono = document.getElementById("input-telefono").value.trim();
+  if (!nombre || !telefono){
+    alert("Por favor completa tu nombre y teléfono.");
+    return;
+  }
+  const btn = document.getElementById("btn-confirmar");
+  btn.disabled = true;
+  btn.textContent = "Reservando…";
+
+  const s = servicios[estado.servicioId];
+  const nuevaCita = {
+    nombre, telefono,
+    servicioId: estado.servicioId,
+    servicioNombre: s.nombre,
+    hora: estado.hora,
+    duracion: s.duracion,
+    precio: s.precio,
+    estado: "pendiente",
+    creada: Date.now()
+  };
+
+  try{
+    const nuevaRef = push(ref(db, "citas/" + estado.fecha));
+    await set(nuevaRef, nuevaCita);
+
+    document.getElementById("resumen-final-card").innerHTML = `
+      <div class="summary-row"><span class="label">Servicio</span><span class="value">${s.nombre}</span></div>
+      <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(estado.fecha)}</span></div>
+      <div class="summary-row"><span class="label">Hora</span><span class="value">${estado.hora}</span></div>
+      <div class="summary-row"><span class="label">Precio</span><span class="value">${formatoMoneda(s.precio)}</span></div>
+    `;
+    irPasoInterno(4);
+  } catch(err){
+    alert("Hubo un problema al reservar. Intenta de nuevo.");
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Confirmar cita";
+  }
+};
+
+window.reiniciar = function(){
+  estado = { servicioId: null, fecha: null, hora: null };
+  document.getElementById("input-nombre").value = "";
+  document.getElementById("input-telefono").value = "";
+  document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
+  irPasoInterno(1);
+};
+
+cargarServicios();
+</script>
+</body>
+</html>
