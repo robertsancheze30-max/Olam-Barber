@@ -315,7 +315,7 @@ async function cargarServicios(){
       <div class="servicio-top">
         <div>
           <div class="nombre">${s.nombre}</div>
-          <div class="meta">${s.duracion} min · ${formatoMoneda(s.precio)}</div>
+          <div class="meta">${formatoMoneda(s.precio)}</div>
         </div>
         <div class="acciones">
           <button class="btn small ghost" onclick="toggleEdicion('${id}')">Editar</button>
