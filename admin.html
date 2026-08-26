@@ -308,6 +308,7 @@ onValue(ref(db, "citas"), (snap) => {
   if (estadoConocido === null){
     // Primera carga: solo guardamos referencia, no alertamos.
     estadoConocido = aplanarCitas(data);
+    verificarAvisoManana(data);
     return;
   }
 
@@ -331,6 +332,26 @@ onValue(ref(db, "citas"), (snap) => {
   if (document.getElementById("view-historial").classList.contains("active")) cargarHistorial();
   if (document.getElementById("view-horarios").classList.contains("active")) renderSlotsBloqueo(document.getElementById("bl-fecha").value);
 });
+
+function verificarAvisoManana(data){
+  const ahora = new Date();
+  const hoyIso = ahora.toISOString().slice(0,10);
+  const minutosActuales = ahora.getHours()*60 + ahora.getMinutes();
+  if (minutosActuales < 540 || minutosActuales >= 780) return; // solo entre 09:00 y 13:00
+  if (localStorage.getItem("avisoManana_" + hoyIso)) return;
+
+  const citasHoy = data[hoyIso] ? Object.values(data[hoyIso]).filter(c => c.estado !== "cancelada") : [];
+  if (citasHoy.length === 0) return;
+
+  localStorage.setItem("avisoManana_" + hoyIso, "1");
+  sonidoAlerta();
+  if (navigator.vibrate) navigator.vibrate([200,100,200,100,200]);
+  if ("Notification" in window && Notification.permission === "granted"){
+    new Notification("Buenos días ☀️ Olam Barber", {
+      body: `Tienes ${citasHoy.length} cita(s) hoy. Abre la Agenda para enviar los recordatorios por WhatsApp.`
+    });
+  }
+}
 
 function aplanarCitas(data){
   const plano = {};
