@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Olam Barber — Código QR</title>
+<link rel="icon" href="icon.jpg">
+<link rel="apple-touch-icon" href="icon.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0906;
+    --panel:#18130b;
+    --panel-2:#211a0f;
+    --border:#3a2f1a;
+    --gold-deep:#9a7226;
+    --gold:#d4af37;
+    --gold-bright:#f4d675;
+    --text:#f7f1e3;
+    --muted:#b8a97a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(212,175,55,0.10), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Outfit', sans-serif;
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px 16px;
+  }
+  .flyer{
+    max-width:420px; width:100%;
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
+    border-left:3px solid var(--gold); border-bottom:3px solid var(--gold);
+    box-shadow:-10px 10px 30px -12px rgba(212,175,55,0.5);
+    border-radius:22px;
+    padding:32px 24px;
+    text-align:center;
+  }
+  .logo-img{width:70%; max-width:220px; height:auto; margin:0 auto 18px; display:block;}
+  .titulo{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:26px; letter-spacing:0.6px;
+    background:linear-gradient(120deg, var(--gold-bright) 0%, var(--gold) 45%, var(--gold-deep) 75%, var(--gold-bright) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    margin:0 0 4px;
+  }
+  .sub{color:var(--muted); font-size:13px; margin:0 0 22px;}
+  .qr-wrap{
+    background:#fff;
+    border-radius:16px;
+    padding:16px;
+    display:inline-block;
+    box-shadow:0 8px 24px -8px rgba(212,175,55,0.4);
+  }
+  .qr-wrap img{display:block; width:240px; height:240px;}
+  .instrucciones{
+    margin-top:22px; color:var(--muted); font-size:12.5px; line-height:1.6;
+  }
+  .link-txt{
+    margin-top:14px; font-size:12px; color:var(--gold-bright); word-break:break-all;
+  }
+</style>
+</head>
+<body>
+
+<div class="flyer">
+  <p class="titulo">Escanea para reservar</p>
+  <div class="qr-wrap">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=0&data=https%3A%2F%2Folam-barber.vercel.app" alt="Código QR Olam Barber">
+  </div>
+  <p class="instrucciones">Este código lleva directo a la app de reservas.<br>Mantén el dedo presionado sobre la imagen para guardarla.</p>
+  <p class="link-txt">olam-barber.vercel.app</p>
+</div>
+
+</body>
+</html>
