@@ -57,11 +57,12 @@
 
   #app{display:block;}
 
-  .tabs{display:flex; gap:8px; margin-bottom:18px;}
+  .tabs{display:flex; gap:8px; margin-bottom:18px; overflow-x:auto; scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
   .tab{
-    flex:1; text-align:center; padding:10px 6px; border-radius:10px;
+    flex:0 0 auto; text-align:center; padding:10px 16px; border-radius:10px;
     background:var(--panel); border:1px solid var(--border); color:var(--muted);
-    font-size:13px; font-weight:700; cursor:pointer;
+    font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
   }
   .tab.active{background:var(--panel-2); color:var(--gold-bright); border-color:var(--gold);}
 
@@ -158,6 +159,7 @@
     <div class="tab active" data-tab="agenda" onclick="cambiarTab('agenda')">Agenda</div>
     <div class="tab" data-tab="servicios" onclick="cambiarTab('servicios')">Servicios</div>
     <div class="tab" data-tab="horarios" onclick="cambiarTab('horarios')">Bloqueos</div>
+    <div class="tab" data-tab="historial" onclick="cambiarTab('historial')">Historial</div>
   </div>
 
   <!-- AGENDA -->
@@ -196,6 +198,12 @@
     <p class="day-label" style="margin-top:20px;">Bloqueos de ese día</p>
     <div id="bloqueos-lista"><div class="empty-note">Elige una fecha arriba para ver sus bloqueos.</div></div>
   </div>
+
+  <!-- HISTORIAL -->
+  <div class="view" id="view-historial">
+    <p class="section-sub" style="color:var(--muted); font-size:13px; margin-bottom:14px;">Citas completadas o canceladas. Se guardan aquí, no en la agenda.</p>
+    <div id="historial-lista"><div class="loading">Cargando historial…</div></div>
+  </div>
 </main>
 </div>
 
@@ -223,6 +231,7 @@ window.cambiarTab = function(tab){
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById("view-" + tab).classList.add("active");
+  if (tab === "historial") cargarHistorial();
 };
 
 function formatoMoneda(n){ return "$" + Number(n).toLocaleString("es-CL"); }
@@ -261,7 +270,9 @@ async function cargarAgenda(){
   cont.innerHTML = "";
   fechasOrdenadas.forEach(fecha => {
     const citas = todasFechas[fecha];
-    const idsOrdenados = Object.keys(citas).sort((a,b) => citas[a].hora.localeCompare(citas[b].hora));
+    const idsOrdenados = Object.keys(citas)
+      .filter(id => citas[id].estado !== "completada" && citas[id].estado !== "cancelada")
+      .sort((a,b) => citas[a].hora.localeCompare(citas[b].hora));
     if (idsOrdenados.length === 0) return;
 
     const label = document.createElement("div");
@@ -283,16 +294,70 @@ async function cargarAgenda(){
           </div>
           <span class="badge ${c.estado}">${c.estado}</span>
         </div>
-        ${c.estado !== "completada" && c.estado !== "cancelada" ? `
         <div class="cita-actions">
           <button class="btn small ghost" onclick="marcarEstado('${fecha}','${id}','completada')">Completada</button>
           <button class="btn small danger-outline" onclick="marcarEstado('${fecha}','${id}','cancelada')">Cancelar</button>
-        </div>` : ""}
+        </div>
       `;
       cont.appendChild(card);
     });
   });
+  if (cont.innerHTML === "") cont.innerHTML = '<div class="empty-note">No hay citas próximas.</div>';
 }
+
+async function cargarHistorial(){
+  const cont = document.getElementById("historial-lista");
+  cont.innerHTML = '<div class="loading">Cargando historial…</div>';
+  const snap = await get(ref(db, "citas"));
+  if (!snap.exists()){
+    cont.innerHTML = '<div class="empty-note">No hay historial todavía.</div>';
+    return;
+  }
+  const todasFechas = snap.val();
+  const fechasOrdenadas = Object.keys(todasFechas).sort().reverse();
+
+  cont.innerHTML = "";
+  fechasOrdenadas.forEach(fecha => {
+    const citas = todasFechas[fecha];
+    const idsFiltrados = Object.keys(citas)
+      .filter(id => citas[id].estado === "completada" || citas[id].estado === "cancelada")
+      .sort((a,b) => citas[a].hora.localeCompare(citas[b].hora));
+    if (idsFiltrados.length === 0) return;
+
+    const label = document.createElement("div");
+    label.className = "day-label";
+    label.textContent = fechaLegible(fecha);
+    cont.appendChild(label);
+
+    idsFiltrados.forEach(id => {
+      const c = citas[id];
+      const card = document.createElement("div");
+      card.className = "cita-card";
+      card.innerHTML = `
+        <div class="cita-top">
+          <div class="cita-hora">${c.hora}</div>
+          <div class="cita-info">
+            <p class="cita-nombre">${c.nombre}</p>
+            <p class="cita-servicio">${c.servicioNombre} · ${formatoMoneda(c.precio)}</p>
+            <p class="cita-tel">${c.telefono}</p>
+          </div>
+          <span class="badge ${c.estado}">${c.estado}</span>
+        </div>
+        <div class="cita-actions">
+          <button class="btn small danger-outline" style="flex:1;" onclick="eliminarDelHistorial('${fecha}','${id}','${c.nombre.replace(/'/g,"")}')">Eliminar del historial</button>
+        </div>
+      `;
+      cont.appendChild(card);
+    });
+  });
+  if (cont.innerHTML === "") cont.innerHTML = '<div class="empty-note">No hay historial todavía.</div>';
+}
+
+window.eliminarDelHistorial = async function(fecha, id, nombre){
+  if (!confirm(`¿Eliminar definitivamente la cita de "${nombre}" del historial? Esta acción no se puede deshacer.`)) return;
+  await remove(ref(db, `citas/${fecha}/${id}`));
+  cargarHistorial();
+};
 
 function actualizarStats(todasFechas){
   const hoyIso = isoDeHoyMasDias(0);
