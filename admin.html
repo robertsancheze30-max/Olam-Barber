@@ -242,13 +242,8 @@
     <div class="slots-grid-admin" id="slots-grid-admin"><div class="loading">Cargando horarios…</div></div>
 
     <p class="day-label" style="margin-top:26px;">Bloqueo recurrente (todos los días)</p>
-    <div id="recurrentes-lista"></div>
-    <div class="new-servicio-form">
-      <input type="time" id="rec-inicio">
-      <input type="time" id="rec-fin">
-      <input type="text" id="rec-motivo" placeholder="Motivo (ej: Almuerzo)">
-      <button class="btn small" style="width:100%;" onclick="agregarRecurrente()">Aplicar todos los días</button>
-    </div>
+    <p class="section-sub" style="margin-bottom:12px;">Toca las horas que quieres bloquear siempre, todos los días</p>
+    <div class="slots-grid-admin" id="recurrentes-grid"><div class="loading">Cargando…</div></div>
   </div>
 
   <!-- HISTORIAL -->
@@ -680,7 +675,7 @@ const inputFecha = document.getElementById("bl-fecha");
 inputFecha.value = new Date().toISOString().slice(0,10);
 inputFecha.addEventListener("change", () => renderSlotsBloqueo(inputFecha.value));
 renderSlotsBloqueo(inputFecha.value);
-cargarRecurrentes();
+renderRecurrentesGrid();
 
 window.toggleDiaCompleto = async function(){
   const fecha = document.getElementById("bl-fecha").value;
@@ -764,48 +759,41 @@ async function toggleBloqueo(fecha, hora, idExistente){
   renderSlotsBloqueo(fecha);
 }
 
-async function cargarRecurrentes(){
-  const cont = document.getElementById("recurrentes-lista");
+async function renderRecurrentesGrid(){
+  const cont = document.getElementById("recurrentes-grid");
+  cont.innerHTML = '<div class="loading">Cargando…</div>';
   const snap = await get(ref(db, "bloqueosRecurrentes"));
-  if (!snap.exists()){
-    cont.innerHTML = '<div class="empty-note" style="padding:16px 10px;">No hay bloqueos recurrentes.</div>';
-    return;
-  }
-  const recurrentes = snap.val();
+  const recurrentes = snap.exists() ? snap.val() : {};
+
+  const bloqueadoPorHora = {};
+  Object.entries(recurrentes).forEach(([id, r]) => { bloqueadoPorHora[r.horaInicio] = id; });
+
+  const inicio = minutosDesdeAdmin("10:00");
+  const fin = minutosDesdeAdmin("21:00");
+
   cont.innerHTML = "";
-  Object.entries(recurrentes).forEach(([id, r]) => {
-    const row = document.createElement("div");
-    row.className = "recurrente-row";
-    row.innerHTML = `
-      <span>${r.horaInicio}–${r.horaFin} · ${r.motivo}</span>
-      <button class="btn small danger-outline" onclick="eliminarRecurrente('${id}')">Eliminar</button>
-    `;
-    cont.appendChild(row);
-  });
+  for (let t = inicio; t < fin; t += INTERVALO_MIN_ADMIN){
+    const hora = minutosAHHMMAdmin(t);
+    const btn = document.createElement("div");
+    const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
+    btn.className = "slot-admin" + (estaBloqueado ? " bloqueado" : "");
+    btn.textContent = hora;
+    btn.onclick = () => toggleRecurrente(hora, bloqueadoPorHora[hora]);
+    cont.appendChild(btn);
+  }
 }
 
-window.agregarRecurrente = async function(){
-  const horaInicio = document.getElementById("rec-inicio").value;
-  const horaFin = document.getElementById("rec-fin").value;
-  const motivo = document.getElementById("rec-motivo").value.trim() || "Bloqueado";
-  if (!horaInicio || !horaFin || horaFin <= horaInicio){
-    alert("Completa hora de inicio y fin válidas.");
-    return;
+async function toggleRecurrente(hora, idExistente){
+  if (idExistente){
+    await remove(ref(db, "bloqueosRecurrentes/" + idExistente));
+  } else {
+    const finMin = minutosDesdeAdmin(hora) + INTERVALO_MIN_ADMIN;
+    const nuevaRef = push(ref(db, "bloqueosRecurrentes"));
+    await set(nuevaRef, { horaInicio: hora, horaFin: minutosAHHMMAdmin(finMin), motivo: "Recurrente" });
   }
-  const nuevaRef = push(ref(db, "bloqueosRecurrentes"));
-  await set(nuevaRef, { horaInicio, horaFin, motivo });
-  document.getElementById("rec-inicio").value = "";
-  document.getElementById("rec-fin").value = "";
-  document.getElementById("rec-motivo").value = "";
-  cargarRecurrentes();
+  renderRecurrentesGrid();
   renderSlotsBloqueo(document.getElementById("bl-fecha").value);
-};
-
-window.eliminarRecurrente = async function(id){
-  await remove(ref(db, "bloqueosRecurrentes/" + id));
-  cargarRecurrentes();
-  renderSlotsBloqueo(document.getElementById("bl-fecha").value);
-};
+}
 </script>
 </body>
 </html>
