@@ -5,17 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Olam Barber — Reserva tu corte</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0b0b0c;
-    --panel:#17140f;
-    --panel-2:#1f1b14;
-    --border:#2a2620;
-    --gold:#c9a24b;
-    --gold-bright:#e8c468;
-    --text:#f3eee1;
-    --muted:#a79a7d;
+    --bg:#0a0906;
+    --panel:#18130b;
+    --panel-2:#211a0f;
+    --border:#3a2f1a;
+    --gold-deep:#9a7226;
+    --gold:#d4af37;
+    --gold-bright:#f4d675;
+    --text:#f7f1e3;
+    --muted:#b8a97a;
     --ok:#4c9a6a;
     --danger:#c24d4d;
     --radius:16px;
@@ -24,14 +25,18 @@
   html,body{margin:0; padding:0;}
   body{
     background:
-      radial-gradient(1200px 600px at 50% -10%, rgba(201,162,75,0.08), transparent 60%),
+      radial-gradient(1200px 600px at 50% -10%, rgba(212,175,55,0.10), transparent 60%),
       var(--bg);
     color:var(--text);
-    font-family:'Manrope', sans-serif;
+    font-family:'Outfit', sans-serif;
     min-height:100vh;
     padding-bottom:40px;
   }
   .display{font-family:'Bebas Neue', sans-serif; letter-spacing:0.5px;}
+  .gold-text{
+    background:linear-gradient(120deg, var(--gold-bright) 0%, var(--gold) 45%, var(--gold-deep) 75%, var(--gold-bright) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
 
   header.hero{
     padding:0 0 28px;
@@ -62,8 +67,9 @@
   .tagline{
     color:var(--muted);
     font-size:14px;
+    font-weight:500;
     margin-top:6px;
-    letter-spacing:0.3px;
+    letter-spacing:0.4px;
   }
 
   main{max-width:480px; margin:0 auto; padding:20px 16px;}
@@ -86,15 +92,17 @@
 
   .section-title{
     font-family:'Bebas Neue', sans-serif;
-    font-size:26px;
-    color:var(--gold-bright);
-    letter-spacing:0.5px;
+    font-size:28px;
+    letter-spacing:0.6px;
     margin:0 0 4px;
+    background:linear-gradient(120deg, var(--gold-bright) 0%, var(--gold) 45%, var(--gold-deep) 75%, var(--gold-bright) 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    display:inline-block;
   }
-  .section-sub{color:var(--muted); font-size:13px; margin:0 0 18px;}
+  .section-sub{color:var(--muted); font-size:13px; margin:0 0 20px; letter-spacing:0.2px;}
 
   .card{
-    background:var(--panel);
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
     border:1px solid var(--border);
     border-radius:var(--radius);
     padding:16px;
@@ -104,18 +112,35 @@
   .service-card{
     display:flex; justify-content:space-between; align-items:center;
     cursor:pointer;
-    transition:border-color .2s, transform .15s;
+    position:relative;
+    padding-left:20px;
+    transition:border-color .2s, transform .15s, box-shadow .2s;
+  }
+  .service-card::before{
+    content:"";
+    position:absolute; left:0; top:14px; bottom:14px; width:3px;
+    border-radius:3px;
+    background:linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+    opacity:0.55;
+    transition:opacity .2s;
   }
   .service-card:active{transform:scale(0.98);}
-  .service-card.selected{border-color:var(--gold); background:var(--panel-2);}
-  .service-name{font-weight:700; font-size:16px; margin:0 0 4px;}
+  .service-card.selected{
+    border-color:var(--gold);
+    background:linear-gradient(160deg, var(--panel-2) 0%, #1a1409 100%);
+    box-shadow:0 0 0 1px rgba(212,175,55,0.25), 0 8px 20px -8px rgba(212,175,55,0.35);
+  }
+  .service-card.selected::before{opacity:1;}
+  .service-name{font-weight:700; font-size:16px; margin:0; letter-spacing:0.1px;}
   .service-meta{color:var(--muted); font-size:13px;}
   .service-price{
     font-family:'Bebas Neue', sans-serif;
-    font-size:22px;
-    color:var(--gold-bright);
+    font-size:23px;
+    letter-spacing:0.3px;
     white-space:nowrap;
     margin-left:12px;
+    background:linear-gradient(120deg, var(--gold-bright), var(--gold) 60%, var(--gold-deep));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
   }
 
   .date-scroll{
@@ -163,7 +188,7 @@
   }
   .summary-row:last-child{border-bottom:none;}
   .summary-row .label{color:var(--muted);}
-  .summary-row .value{font-weight:700;}
+  .summary-row .value{font-weight:700; letter-spacing:0.1px;}
 
   input[type=text], input[type=tel]{
     width:100%;
@@ -181,18 +206,19 @@
 
   .btn{
     display:block; width:100%;
-    background:var(--gold);
+    background:linear-gradient(135deg, var(--gold-bright), var(--gold) 55%, var(--gold-deep));
     color:#181410;
     border:none;
     border-radius:12px;
     padding:16px;
     font-size:16px;
-    font-weight:800;
+    font-weight:700;
     text-transform:uppercase;
-    letter-spacing:0.4px;
+    letter-spacing:0.6px;
     cursor:pointer;
     text-align:center;
-    transition:transform .15s, background .2s;
+    box-shadow:0 8px 20px -8px rgba(212,175,55,0.5);
+    transition:transform .15s, box-shadow .2s;
   }
   .btn:active{transform:scale(0.98);}
   .btn:disabled{opacity:0.35; pointer-events:none;}
@@ -218,7 +244,11 @@
     display:flex; align-items:center; justify-content:center;
   }
   .confirm-check svg{width:30px; height:30px; color:var(--ok);}
-  .confirm-title{text-align:center; font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--gold-bright); margin-bottom:6px;}
+  .confirm-title{
+    text-align:center; font-family:'Bebas Neue',sans-serif; font-size:29px; margin-bottom:6px; letter-spacing:0.4px;
+    background:linear-gradient(120deg, var(--gold-bright), var(--gold) 55%, var(--gold-deep));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
   .confirm-sub{text-align:center; color:var(--muted); font-size:14px; margin-bottom:22px;}
 
   .nav-bottom{
@@ -249,7 +279,7 @@
   <!-- PASO 1: SERVICIOS -->
   <section class="screen active" id="screen-servicios">
     <p class="section-title">Elige tu servicio</p>
-    <p class="section-sub">Precios y duración exactos</p>
+    <p class="section-sub">Precios exactos, sin sorpresas</p>
     <div id="lista-servicios">
       <div class="loading">Cargando servicios…</div>
     </div>
