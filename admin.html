@@ -177,6 +177,15 @@
   .slot-admin.ocupado{
     opacity:0.35; pointer-events:none; text-decoration:none;
   }
+  .slot-admin.recurrente{
+    background:rgba(212,175,55,0.1);
+    opacity:0.5; pointer-events:none; text-decoration:none;
+  }
+  .recurrente-row{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:10px 14px; margin-bottom:8px; font-size:13px;
+  }
 </style>
 </head>
 <body>
@@ -202,6 +211,10 @@
       <div class="stat"><div class="num" id="stat-semana">0</div><div class="lbl">Esta semana</div></div>
       <div class="stat"><div class="num" id="stat-ingresos">$0</div><div class="lbl">Ingresos (7 días)</div></div>
     </div>
+    <div class="stats-row" style="grid-template-columns:1fr 1fr;">
+      <div class="stat"><div class="num" id="stat-top-servicio" style="font-size:15px;">—</div><div class="lbl">Servicio más pedido</div></div>
+      <div class="stat"><div class="num" id="stat-top-dia" style="font-size:15px;">—</div><div class="lbl">Mejor día</div></div>
+    </div>
     <div id="agenda-lista"><div class="loading">Cargando citas…</div></div>
   </div>
 
@@ -223,14 +236,25 @@
     <div class="new-servicio-form" style="margin-top:0;">
       <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Elige el día</p>
       <input type="date" id="bl-fecha">
+      <button class="btn small" id="btn-dia-completo" style="width:100%; margin-top:4px;" onclick="toggleDiaCompleto()">Cerrar todo el día</button>
     </div>
     <p class="day-label" style="margin-top:20px;">Toca un horario para bloquearlo o habilitarlo</p>
     <div class="slots-grid-admin" id="slots-grid-admin"><div class="loading">Cargando horarios…</div></div>
+
+    <p class="day-label" style="margin-top:26px;">Bloqueo recurrente (todos los días)</p>
+    <div id="recurrentes-lista"></div>
+    <div class="new-servicio-form">
+      <input type="time" id="rec-inicio">
+      <input type="time" id="rec-fin">
+      <input type="text" id="rec-motivo" placeholder="Motivo (ej: Almuerzo)">
+      <button class="btn small" style="width:100%;" onclick="agregarRecurrente()">Aplicar todos los días</button>
+    </div>
   </div>
 
   <!-- HISTORIAL -->
   <div class="view" id="view-historial">
     <p class="section-sub" style="color:var(--muted); font-size:13px; margin-bottom:14px;">Citas completadas o canceladas. Se guardan aquí, no en la agenda.</p>
+    <input type="text" id="historial-buscar" placeholder="Buscar por nombre o teléfono" oninput="filtrarHistorial()" style="width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:11px; color:var(--text); font-size:14px; margin-bottom:14px; font-family:inherit;">
     <div id="historial-lista"><div class="loading">Cargando historial…</div></div>
   </div>
 </main>
@@ -387,8 +411,14 @@ async function cargarAgenda(){
         </div>
         <button class="btn small whatsapp" onclick="recordarWhatsApp('${c.telefono}','${c.nombre.replace(/'/g,"")}','${c.servicioNombre.replace(/'/g,"")}','${fecha}','${c.hora}')">Recordar por WhatsApp</button>
         <div class="cita-actions">
+          <button class="btn small ghost" onclick="toggleReprogramar('${fecha}','${id}')">Reprogramar</button>
           <button class="btn small ghost" onclick="marcarEstado('${fecha}','${id}','completada')">Completada</button>
           <button class="btn small danger-outline" onclick="marcarEstado('${fecha}','${id}','cancelada')">Cancelar</button>
+        </div>
+        <div class="servicio-edit" id="reprogramar-${fecha}-${id}" style="display:none;">
+          <input type="date" id="reprog-fecha-${fecha}-${id}" value="${fecha}">
+          <input type="time" id="reprog-hora-${fecha}-${id}" value="${c.hora}">
+          <button class="btn small" style="width:100%;" onclick="guardarReprogramacion('${fecha}','${id}')">Guardar nuevo horario</button>
         </div>
       `;
       cont.appendChild(card);
@@ -402,17 +432,31 @@ async function cargarHistorial(){
   cont.innerHTML = '<div class="loading">Cargando historial…</div>';
   const snap = await get(ref(db, "citas"));
   if (!snap.exists()){
+    historialDatos = {};
     cont.innerHTML = '<div class="empty-note">No hay historial todavía.</div>';
     return;
   }
-  const todasFechas = snap.val();
-  const fechasOrdenadas = Object.keys(todasFechas).sort().reverse();
+  historialDatos = snap.val();
+  filtrarHistorial();
+}
+
+let historialDatos = {};
+
+window.filtrarHistorial = function(){
+  const cont = document.getElementById("historial-lista");
+  const termino = (document.getElementById("historial-buscar").value || "").toLowerCase().trim();
+  const fechasOrdenadas = Object.keys(historialDatos).sort().reverse();
 
   cont.innerHTML = "";
   fechasOrdenadas.forEach(fecha => {
-    const citas = todasFechas[fecha];
+    const citas = historialDatos[fecha];
     const idsFiltrados = Object.keys(citas)
       .filter(id => citas[id].estado === "completada" || citas[id].estado === "cancelada")
+      .filter(id => {
+        if (!termino) return true;
+        const c = citas[id];
+        return (c.nombre || "").toLowerCase().includes(termino) || (c.telefono || "").includes(termino);
+      })
       .sort((a,b) => citas[a].hora.localeCompare(citas[b].hora));
     if (idsFiltrados.length === 0) return;
 
@@ -442,8 +486,29 @@ async function cargarHistorial(){
       cont.appendChild(card);
     });
   });
-  if (cont.innerHTML === "") cont.innerHTML = '<div class="empty-note">No hay historial todavía.</div>';
+  if (cont.innerHTML === "") cont.innerHTML = '<div class="empty-note">No hay resultados.</div>';
 }
+
+window.toggleReprogramar = function(fecha, id){
+  const el = document.getElementById(`reprogramar-${fecha}-${id}`);
+  el.style.display = el.style.display === "none" ? "block" : "none";
+};
+
+window.guardarReprogramacion = async function(fechaOriginal, id){
+  const nuevaFecha = document.getElementById(`reprog-fecha-${fechaOriginal}-${id}`).value;
+  const nuevaHora = document.getElementById(`reprog-hora-${fechaOriginal}-${id}`).value;
+  if (!nuevaFecha || !nuevaHora){
+    alert("Completa fecha y hora.");
+    return;
+  }
+  const snap = await get(ref(db, `citas/${fechaOriginal}/${id}`));
+  if (!snap.exists()) return;
+  const cita = snap.val();
+  const nuevaRef = push(ref(db, "citas/" + nuevaFecha));
+  await set(nuevaRef, { ...cita, hora: nuevaHora });
+  await remove(ref(db, `citas/${fechaOriginal}/${id}`));
+  cargarAgenda();
+};
 
 window.eliminarDelHistorial = async function(fecha, id, nombre){
   if (!confirm(`¿Eliminar definitivamente la cita de "${nombre}" del historial? Esta acción no se puede deshacer.`)) return;
@@ -455,18 +520,29 @@ function actualizarStats(todasFechas){
   const hoyIso = isoDeHoyMasDias(0);
   let hoy = 0, semana = 0, ingresos = 0;
   const fechaLimite = isoDeHoyMasDias(7);
+  const conteoServicios = {};
+  const conteoDias = {};
   Object.keys(todasFechas).forEach(fecha => {
-    if (fecha < hoyIso || fecha >= fechaLimite) return;
     Object.values(todasFechas[fecha]).forEach(c => {
       if (c.estado === "cancelada") return;
-      if (fecha === hoyIso) hoy++;
-      semana++;
-      ingresos += Number(c.precio || 0);
+      if (fecha >= hoyIso && fecha < fechaLimite){
+        if (fecha === hoyIso) hoy++;
+        semana++;
+        ingresos += Number(c.precio || 0);
+      }
+      if (c.servicioNombre) conteoServicios[c.servicioNombre] = (conteoServicios[c.servicioNombre] || 0) + 1;
+      const diaSemana = DIAS[new Date(fecha + "T00:00:00").getDay()];
+      conteoDias[diaSemana] = (conteoDias[diaSemana] || 0) + 1;
     });
   });
   document.getElementById("stat-hoy").textContent = hoy;
   document.getElementById("stat-semana").textContent = semana;
   document.getElementById("stat-ingresos").textContent = formatoMoneda(ingresos);
+
+  const topServicio = Object.entries(conteoServicios).sort((a,b) => b[1]-a[1])[0];
+  const topDia = Object.entries(conteoDias).sort((a,b) => b[1]-a[1])[0];
+  document.getElementById("stat-top-servicio").textContent = topServicio ? topServicio[0] : "—";
+  document.getElementById("stat-top-dia").textContent = topDia ? topDia[0] : "—";
 }
 
 window.recordarWhatsApp = function(telefono, nombre, servicio, fecha, hora){
@@ -604,10 +680,32 @@ const inputFecha = document.getElementById("bl-fecha");
 inputFecha.value = new Date().toISOString().slice(0,10);
 inputFecha.addEventListener("change", () => renderSlotsBloqueo(inputFecha.value));
 renderSlotsBloqueo(inputFecha.value);
+cargarRecurrentes();
+
+window.toggleDiaCompleto = async function(){
+  const fecha = document.getElementById("bl-fecha").value;
+  const snap = await get(ref(db, "diasCerrados/" + fecha));
+  if (snap.exists()){
+    await remove(ref(db, "diasCerrados/" + fecha));
+  } else {
+    if (!confirm(`¿Cerrar completamente el ${fechaLegible(fecha)}? Nadie podrá reservar ese día.`)) return;
+    await set(ref(db, "diasCerrados/" + fecha), true);
+  }
+  renderSlotsBloqueo(fecha);
+};
 
 async function renderSlotsBloqueo(fecha){
   const cont = document.getElementById("slots-grid-admin");
+  const btnDia = document.getElementById("btn-dia-completo");
   cont.innerHTML = '<div class="loading">Cargando horarios…</div>';
+
+  const snapCerrado = await get(ref(db, "diasCerrados/" + fecha));
+  if (snapCerrado.exists()){
+    btnDia.textContent = "Reabrir este día";
+    cont.innerHTML = '<div class="empty-note">Este día está marcado como cerrado completo.</div>';
+    return;
+  }
+  btnDia.textContent = "Cerrar todo el día";
 
   const diaSemana = new Date(fecha + "T00:00:00").getDay();
   const horarioHoy = HORARIO_POR_DIA[diaSemana];
@@ -616,12 +714,14 @@ async function renderSlotsBloqueo(fecha){
     return;
   }
 
-  const [snapBloqueos, snapCitas] = await Promise.all([
+  const [snapBloqueos, snapCitas, snapRecurrentes] = await Promise.all([
     get(ref(db, "bloqueos/" + fecha)),
-    get(ref(db, "citas/" + fecha))
+    get(ref(db, "citas/" + fecha)),
+    get(ref(db, "bloqueosRecurrentes"))
   ]);
   const bloqueos = snapBloqueos.exists() ? snapBloqueos.val() : {};
   const citas = snapCitas.exists() ? snapCitas.val() : {};
+  const recurrentes = snapRecurrentes.exists() ? snapRecurrentes.val() : {};
 
   const bloqueadoPorHora = {};
   Object.entries(bloqueos).forEach(([id, b]) => { bloqueadoPorHora[b.horaInicio] = id; });
@@ -629,6 +729,10 @@ async function renderSlotsBloqueo(fecha){
   const ocupadoPorHora = new Set(
     Object.values(citas).filter(c => c.estado !== "cancelada").map(c => c.hora)
   );
+
+  const rangosRecurrentes = Object.values(recurrentes).map(r => ({
+    ini: minutosDesdeAdmin(r.horaInicio), fin: minutosDesdeAdmin(r.horaFin)
+  }));
 
   const inicio = minutosDesdeAdmin(horarioHoy.apertura);
   const fin = minutosDesdeAdmin(horarioHoy.cierre);
@@ -639,9 +743,10 @@ async function renderSlotsBloqueo(fecha){
     const btn = document.createElement("div");
     const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
     const estaOcupado = ocupadoPorHora.has(hora);
-    btn.className = "slot-admin" + (estaBloqueado ? " bloqueado" : "") + (estaOcupado ? " ocupado" : "");
+    const esRecurrente = rangosRecurrentes.some(r => t >= r.ini && t < r.fin);
+    btn.className = "slot-admin" + (estaBloqueado ? " bloqueado" : "") + (estaOcupado ? " ocupado" : "") + (esRecurrente ? " recurrente" : "");
     btn.textContent = hora;
-    if (!estaOcupado){
+    if (!estaOcupado && !esRecurrente){
       btn.onclick = () => toggleBloqueo(fecha, hora, bloqueadoPorHora[hora]);
     }
     cont.appendChild(btn);
@@ -658,6 +763,49 @@ async function toggleBloqueo(fecha, hora, idExistente){
   }
   renderSlotsBloqueo(fecha);
 }
+
+async function cargarRecurrentes(){
+  const cont = document.getElementById("recurrentes-lista");
+  const snap = await get(ref(db, "bloqueosRecurrentes"));
+  if (!snap.exists()){
+    cont.innerHTML = '<div class="empty-note" style="padding:16px 10px;">No hay bloqueos recurrentes.</div>';
+    return;
+  }
+  const recurrentes = snap.val();
+  cont.innerHTML = "";
+  Object.entries(recurrentes).forEach(([id, r]) => {
+    const row = document.createElement("div");
+    row.className = "recurrente-row";
+    row.innerHTML = `
+      <span>${r.horaInicio}–${r.horaFin} · ${r.motivo}</span>
+      <button class="btn small danger-outline" onclick="eliminarRecurrente('${id}')">Eliminar</button>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+window.agregarRecurrente = async function(){
+  const horaInicio = document.getElementById("rec-inicio").value;
+  const horaFin = document.getElementById("rec-fin").value;
+  const motivo = document.getElementById("rec-motivo").value.trim() || "Bloqueado";
+  if (!horaInicio || !horaFin || horaFin <= horaInicio){
+    alert("Completa hora de inicio y fin válidas.");
+    return;
+  }
+  const nuevaRef = push(ref(db, "bloqueosRecurrentes"));
+  await set(nuevaRef, { horaInicio, horaFin, motivo });
+  document.getElementById("rec-inicio").value = "";
+  document.getElementById("rec-fin").value = "";
+  document.getElementById("rec-motivo").value = "";
+  cargarRecurrentes();
+  renderSlotsBloqueo(document.getElementById("bl-fecha").value);
+};
+
+window.eliminarRecurrente = async function(id){
+  await remove(ref(db, "bloqueosRecurrentes/" + id));
+  cargarRecurrentes();
+  renderSlotsBloqueo(document.getElementById("bl-fecha").value);
+};
 </script>
 </body>
 </html>

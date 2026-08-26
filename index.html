@@ -274,6 +274,14 @@
   }
   .nav-link{color:var(--muted); font-size:13px; text-decoration:underline; cursor:pointer;}
 
+  .info-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:12px 14px; margin-bottom:18px; font-size:12.5px; color:var(--muted);
+  }
+  .info-bar a{color:var(--gold-bright); text-decoration:none; font-weight:600; white-space:nowrap;}
+  .info-bar .horario-txt{line-height:1.4;}
+
   .loading{text-align:center; color:var(--muted); padding:30px 0; font-size:14px;}
 </style>
 </head>
@@ -288,6 +296,10 @@
   <!-- PASO 1: SERVICIOS -->
   <section class="screen active" id="screen-servicios">
     <img src="banner-servicios.jpg" alt="Elige tu servicio" class="banner-servicios">
+    <div class="info-bar">
+      <span class="horario-txt">Lun–Sáb 10:00–21:00<br>Dom 10:00–17:00</span>
+      <a href="https://www.google.com/maps/search/?api=1&query=Olam+Barber" target="_blank">📍 Cómo llegar</a>
+    </div>
     <div id="lista-servicios">
       <div class="loading">Cargando servicios…</div>
     </div>
@@ -295,7 +307,7 @@
 
   <!-- PASO 2: FECHA Y HORA -->
   <section class="screen" id="screen-fecha">
-    <span class="back-link" onclick="irPaso(1)">← Cambiar servicio</span>
+    <span class="back-link" id="back-link-fecha" onclick="irPaso(1)">← Cambiar servicio</span>
     <p class="section-title">Elige día y hora</p>
     <p class="section-sub" id="servicio-elegido-label"></p>
     <div class="date-scroll" id="date-scroll"></div>
@@ -305,7 +317,7 @@
   <!-- PASO 3: DATOS + RESUMEN -->
   <section class="screen" id="screen-resumen">
     <span class="back-link" onclick="irPaso(2)">← Cambiar horario</span>
-    <p class="section-title">Confirma tu cita</p>
+    <p class="section-title" id="titulo-resumen">Confirma tu cita</p>
     <div class="card" id="resumen-card"></div>
     <input type="text" id="input-nombre" placeholder="Tu nombre completo" maxlength="50">
     <input type="tel" id="input-telefono" placeholder="Tu teléfono" maxlength="20">
@@ -319,7 +331,7 @@
         <path d="M5 13L9 17L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
-    <p class="confirm-title">¡Cita reservada!</p>
+    <p class="confirm-title" id="confirm-title-txt">¡Cita reservada!</p>
     <p class="confirm-sub">Te esperamos, no faltes ✂️</p>
     <div class="card" id="resumen-final-card"></div>
     <button class="btn" onclick="reiniciar()">Reservar otra cita</button>
@@ -329,7 +341,7 @@
   <section class="screen" id="screen-mis-citas">
     <span class="back-link" onclick="irPasoInterno(1)">← Volver</span>
     <p class="section-title">Mis citas</p>
-    <p class="section-sub">Ingresa tu teléfono para ver y cancelar tus citas</p>
+    <p class="section-sub">Ingresa tu teléfono para ver, reprogramar o cancelar</p>
     <input type="tel" id="input-buscar-telefono" placeholder="Tu teléfono" maxlength="20">
     <button class="btn" onclick="buscarMisCitas()">Buscar mis citas</button>
     <div id="mis-citas-lista" style="margin-top:18px;"></div>
@@ -344,7 +356,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-import { getDatabase, ref, push, get, set, update } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
+import { getDatabase, ref, push, get, set, update, remove } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBCvRlNBttV1yOXMydzY3GcKLpBMo41oaE",
@@ -387,7 +399,10 @@ const SERVICIOS_DEFAULT = {
 let servicios = {};
 let citasDelDia = {};
 let bloqueosDelDia = {};
+let diasCerrados = {};
+let bloqueosRecurrentes = {};
 let estado = { servicioId: null, fecha: null, hora: null };
+let reprogramando = null; // { fechaOriginal, idOriginal, nombre, telefono }
 
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
@@ -397,13 +412,28 @@ function formatoMoneda(n){
 }
 
 async function cargarServicios(){
-  const snap = await get(ref(db, "servicios"));
+  const [snap, snapCerrados, snapRecurrentes] = await Promise.all([
+    get(ref(db, "servicios")),
+    get(ref(db, "diasCerrados")),
+    get(ref(db, "bloqueosRecurrentes"))
+  ]);
   if (snap.exists()){
     servicios = snap.val();
   } else {
     servicios = SERVICIOS_DEFAULT;
     await set(ref(db, "servicios"), SERVICIOS_DEFAULT);
   }
+  diasCerrados = snapCerrados.exists() ? snapCerrados.val() : {};
+  bloqueosRecurrentes = snapRecurrentes.exists() ? snapRecurrentes.val() : {};
+
+  const nombreGuardado = localStorage.getItem("olamBarberNombre");
+  const telefonoGuardado = localStorage.getItem("olamBarberTelefono");
+  if (nombreGuardado) document.getElementById("input-nombre").value = nombreGuardado;
+  if (telefonoGuardado){
+    document.getElementById("input-telefono").value = telefonoGuardado;
+    document.getElementById("input-buscar-telefono").value = telefonoGuardado;
+  }
+
   renderServicios();
 }
 
@@ -474,6 +504,7 @@ function renderFechas(){
     const diaSemana = d.getDay();
     if (!HORARIO_POR_DIA[diaSemana]) continue;
     const iso = d.toISOString().slice(0,10);
+    if (diasCerrados[iso]) continue;
     if (!primerDiaValido) primerDiaValido = iso;
     const chip = document.createElement("div");
     chip.className = "date-chip";
@@ -483,6 +514,7 @@ function renderFechas(){
     cont.appendChild(chip);
   }
   if (primerDiaValido) seleccionarFecha(primerDiaValido);
+  else document.getElementById("slots-grid").innerHTML = '<div class="empty-note">No hay días disponibles próximamente.</div>';
 }
 
 async function seleccionarFecha(iso){
@@ -526,7 +558,10 @@ function renderSlots(){
   const bloqueos = Object.values(bloqueosDelDia)
     .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
 
-  const ocupadosTotal = ocupados.concat(bloqueos);
+  const recurrentes = Object.values(bloqueosRecurrentes)
+    .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
+
+  const ocupadosTotal = ocupados.concat(bloqueos).concat(recurrentes);
 
   const esHoy = estado.fecha === new Date().toISOString().slice(0,10);
   const ahoraMin = new Date().getHours()*60 + new Date().getMinutes();
@@ -569,6 +604,12 @@ window.irPaso = function(n){
       <div class="summary-row"><span class="label">Hora</span><span class="value">${estado.hora}</span></div>
       <div class="summary-row"><span class="label">Precio</span><span class="value">${formatoMoneda(s.precio)}</span></div>
     `;
+    document.getElementById("titulo-resumen").textContent = reprogramando ? "Confirma el nuevo horario" : "Confirma tu cita";
+    document.getElementById("btn-confirmar").textContent = reprogramando ? "Guardar nuevo horario" : "Confirmar cita";
+    if (reprogramando){
+      document.getElementById("input-nombre").value = reprogramando.nombre;
+      document.getElementById("input-telefono").value = reprogramando.telefono;
+    }
   }
   irPasoInterno(n);
 };
@@ -581,7 +622,12 @@ function irPasoInterno(n){
     d.classList.toggle("active", step === n);
     d.classList.toggle("done", step < n);
   });
-  if (n === 2) renderFechas();
+  const backFecha = document.getElementById("back-link-fecha");
+  if (n === 2){
+    backFecha.textContent = reprogramando ? "← Cancelar reprogramación" : "← Cambiar servicio";
+    backFecha.onclick = reprogramando ? () => { reprogramando = null; irPasoInterno('mis-citas'); } : () => irPaso(1);
+    renderFechas();
+  }
   window.scrollTo(0,0);
 }
 window.irPasoInterno = irPasoInterno;
@@ -593,6 +639,7 @@ window.buscarMisCitas = async function(){
     alert("Ingresa tu número de teléfono.");
     return;
   }
+  localStorage.setItem("olamBarberTelefono", telInput);
   cont.innerHTML = '<div class="loading">Buscando…</div>';
 
   const soloDigitos = telInput.replace(/\D/g, "");
@@ -630,10 +677,19 @@ window.buscarMisCitas = async function(){
       <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(c.fecha)}</span></div>
       <div class="summary-row"><span class="label">Hora</span><span class="value">${c.hora}</span></div>
       <div class="summary-row"><span class="label">Estado</span><span class="value">${c.estado}</span></div>
-      <button class="btn secondary" style="margin-top:14px;" onclick="cancelarMiCita('${c.fecha}','${c.id}', this)">Cancelar esta cita</button>
+      <div class="btn-row">
+        <button class="btn secondary" onclick="iniciarReprogramacion('${c.fecha}','${c.id}','${(c.nombre||"").replace(/'/g,"")}','${c.telefono}','${c.servicioId}')">Reprogramar</button>
+        <button class="btn secondary" onclick="cancelarMiCita('${c.fecha}','${c.id}', this)">Cancelar</button>
+      </div>
     `;
     cont.appendChild(card);
   });
+};
+
+window.iniciarReprogramacion = function(fecha, id, nombre, telefono, servicioId){
+  reprogramando = { fechaOriginal: fecha, idOriginal: id, nombre, telefono };
+  estado = { servicioId, fecha: null, hora: null };
+  irPasoInterno(2);
 };
 
 window.cancelarMiCita = async function(fecha, id, btn){
@@ -653,7 +709,7 @@ window.confirmarReserva = async function(){
   }
   const btn = document.getElementById("btn-confirmar");
   btn.disabled = true;
-  btn.textContent = "Reservando…";
+  btn.textContent = reprogramando ? "Guardando…" : "Reservando…";
 
   const s = servicios[estado.servicioId];
   const nuevaCita = {
@@ -671,15 +727,24 @@ window.confirmarReserva = async function(){
     const nuevaRef = push(ref(db, "citas/" + estado.fecha));
     await set(nuevaRef, nuevaCita);
 
+    if (reprogramando){
+      await remove(ref(db, `citas/${reprogramando.fechaOriginal}/${reprogramando.idOriginal}`));
+    }
+
+    localStorage.setItem("olamBarberNombre", nombre);
+    localStorage.setItem("olamBarberTelefono", telefono);
+
     document.getElementById("resumen-final-card").innerHTML = `
       <div class="summary-row"><span class="label">Servicio</span><span class="value">${s.nombre}</span></div>
       <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(estado.fecha)}</span></div>
       <div class="summary-row"><span class="label">Hora</span><span class="value">${estado.hora}</span></div>
       <div class="summary-row"><span class="label">Precio</span><span class="value">${formatoMoneda(s.precio)}</span></div>
     `;
+    document.getElementById("confirm-title-txt").textContent = reprogramando ? "¡Cita reprogramada!" : "¡Cita reservada!";
+    reprogramando = null;
     irPasoInterno(4);
   } catch(err){
-    alert("Hubo un problema al reservar. Intenta de nuevo.");
+    alert("Hubo un problema. Intenta de nuevo.");
     console.error(err);
   } finally {
     btn.disabled = false;
@@ -689,8 +754,9 @@ window.confirmarReserva = async function(){
 
 window.reiniciar = function(){
   estado = { servicioId: null, fecha: null, hora: null };
-  document.getElementById("input-nombre").value = "";
-  document.getElementById("input-telefono").value = "";
+  reprogramando = null;
+  document.getElementById("input-nombre").value = localStorage.getItem("olamBarberNombre") || "";
+  document.getElementById("input-telefono").value = localStorage.getItem("olamBarberTelefono") || "";
   document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
   irPasoInterno(1);
 };
