@@ -144,6 +144,34 @@
     width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
     padding:11px; color:var(--text); font-size:14px; margin-bottom:8px; font-family:inherit;
   }
+
+  .slots-grid-admin{
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;
+  }
+  .slot-admin{
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
+    border-left:2px solid var(--gold); border-bottom:2px solid var(--gold);
+    box-shadow:-4px 4px 12px -8px rgba(212,175,55,0.5);
+    border-radius:10px;
+    padding:12px 6px;
+    text-align:center;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    color:var(--text);
+    transition:transform .15s;
+  }
+  .slot-admin:active{transform:scale(0.96);}
+  .slot-admin.bloqueado{
+    background:rgba(194,77,77,0.12);
+    border-left-color:var(--danger); border-bottom-color:var(--danger);
+    box-shadow:none;
+    color:var(--danger);
+    text-decoration:line-through;
+  }
+  .slot-admin.ocupado{
+    opacity:0.35; pointer-events:none; text-decoration:none;
+  }
 </style>
 </head>
 <body>
@@ -188,15 +216,11 @@
   <!-- BLOQUEOS DE HORARIO -->
   <div class="view" id="view-horarios">
     <div class="new-servicio-form" style="margin-top:0;">
-      <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Bloquear horario</p>
+      <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Elige el día</p>
       <input type="date" id="bl-fecha">
-      <input type="time" id="bl-inicio" placeholder="Hora inicio">
-      <input type="time" id="bl-fin" placeholder="Hora fin">
-      <input type="text" id="bl-motivo" placeholder="Motivo (opcional, ej: Almuerzo)">
-      <button class="btn small" style="width:100%;" onclick="crearBloqueo()">Bloquear</button>
     </div>
-    <p class="day-label" style="margin-top:20px;">Bloqueos de ese día</p>
-    <div id="bloqueos-lista"><div class="empty-note">Elige una fecha arriba para ver sus bloqueos.</div></div>
+    <p class="day-label" style="margin-top:20px;">Toca un horario para bloquearlo o habilitarlo</p>
+    <div class="slots-grid-admin" id="slots-grid-admin"><div class="loading">Cargando horarios…</div></div>
   </div>
 
   <!-- HISTORIAL -->
@@ -225,7 +249,6 @@ const db = getDatabase(app);
 
 cargarAgenda();
 cargarServicios();
-cargarBloqueos(document.getElementById("bl-fecha").value);
 
 window.cambiarTab = function(tab){
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
@@ -480,63 +503,85 @@ window.restablecerCatalogo = async function(){
 };
 
 // ---------- BLOQUEOS DE HORARIO ----------
-const inputFecha = document.getElementById("bl-fecha");
-inputFecha.value = new Date().toISOString().slice(0,10);
-inputFecha.addEventListener("change", () => cargarBloqueos(inputFecha.value));
-
-window.crearBloqueo = async function(){
-  const fecha = document.getElementById("bl-fecha").value;
-  const horaInicio = document.getElementById("bl-inicio").value;
-  const horaFin = document.getElementById("bl-fin").value;
-  const motivo = document.getElementById("bl-motivo").value.trim() || "Bloqueado";
-  if (!fecha || !horaInicio || !horaFin){
-    alert("Completa fecha, hora de inicio y hora de fin.");
-    return;
-  }
-  if (horaFin <= horaInicio){
-    alert("La hora de fin debe ser posterior a la hora de inicio.");
-    return;
-  }
-  const nuevaRef = push(ref(db, "bloqueos/" + fecha));
-  await set(nuevaRef, { horaInicio, horaFin, motivo });
-  document.getElementById("bl-inicio").value = "";
-  document.getElementById("bl-fin").value = "";
-  document.getElementById("bl-motivo").value = "";
-  cargarBloqueos(fecha);
+const HORARIO_POR_DIA = {
+  0: { apertura: "10:00", cierre: "17:00" }, // domingo
+  1: { apertura: "10:00", cierre: "21:00" }, // lunes
+  2: { apertura: "10:00", cierre: "21:00" }, // martes
+  3: { apertura: "10:00", cierre: "21:00" }, // miércoles
+  4: { apertura: "10:00", cierre: "21:00" }, // jueves
+  5: { apertura: "10:00", cierre: "21:00" }, // viernes
+  6: { apertura: "10:00", cierre: "21:00" }  // sábado
 };
+const INTERVALO_MIN_ADMIN = 30;
 
-async function cargarBloqueos(fecha){
-  const cont = document.getElementById("bloqueos-lista");
-  cont.innerHTML = '<div class="loading">Cargando…</div>';
-  const snap = await get(ref(db, "bloqueos/" + fecha));
-  if (!snap.exists()){
-    cont.innerHTML = '<div class="empty-note">No hay horarios bloqueados este día.</div>';
-    return;
-  }
-  const bloqueos = snap.val();
-  cont.innerHTML = "";
-  Object.entries(bloqueos).forEach(([id, b]) => {
-    const row = document.createElement("div");
-    row.className = "servicio-row";
-    row.innerHTML = `
-      <div class="servicio-top">
-        <div>
-          <div class="nombre">${b.horaInicio} — ${b.horaFin}</div>
-          <div class="meta">${b.motivo}</div>
-        </div>
-        <div class="acciones">
-          <button class="btn small danger-outline" onclick="eliminarBloqueo('${fecha}','${id}')">Eliminar</button>
-        </div>
-      </div>
-    `;
-    cont.appendChild(row);
-  });
+function minutosDesdeAdmin(hhmm){
+  const [h,m] = hhmm.split(":").map(Number);
+  return h*60 + m;
+}
+function minutosAHHMMAdmin(min){
+  const h = Math.floor(min/60).toString().padStart(2,"0");
+  const m = (min%60).toString().padStart(2,"0");
+  return `${h}:${m}`;
 }
 
-window.eliminarBloqueo = async function(fecha, id){
-  await remove(ref(db, `bloqueos/${fecha}/${id}`));
-  cargarBloqueos(fecha);
-};
+const inputFecha = document.getElementById("bl-fecha");
+inputFecha.value = new Date().toISOString().slice(0,10);
+inputFecha.addEventListener("change", () => renderSlotsBloqueo(inputFecha.value));
+renderSlotsBloqueo(inputFecha.value);
+
+async function renderSlotsBloqueo(fecha){
+  const cont = document.getElementById("slots-grid-admin");
+  cont.innerHTML = '<div class="loading">Cargando horarios…</div>';
+
+  const diaSemana = new Date(fecha + "T00:00:00").getDay();
+  const horarioHoy = HORARIO_POR_DIA[diaSemana];
+  if (!horarioHoy){
+    cont.innerHTML = '<div class="empty-note">La barbería está cerrada este día.</div>';
+    return;
+  }
+
+  const [snapBloqueos, snapCitas] = await Promise.all([
+    get(ref(db, "bloqueos/" + fecha)),
+    get(ref(db, "citas/" + fecha))
+  ]);
+  const bloqueos = snapBloqueos.exists() ? snapBloqueos.val() : {};
+  const citas = snapCitas.exists() ? snapCitas.val() : {};
+
+  const bloqueadoPorHora = {};
+  Object.entries(bloqueos).forEach(([id, b]) => { bloqueadoPorHora[b.horaInicio] = id; });
+
+  const ocupadoPorHora = new Set(
+    Object.values(citas).filter(c => c.estado !== "cancelada").map(c => c.hora)
+  );
+
+  const inicio = minutosDesdeAdmin(horarioHoy.apertura);
+  const fin = minutosDesdeAdmin(horarioHoy.cierre);
+
+  cont.innerHTML = "";
+  for (let t = inicio; t < fin; t += INTERVALO_MIN_ADMIN){
+    const hora = minutosAHHMMAdmin(t);
+    const btn = document.createElement("div");
+    const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
+    const estaOcupado = ocupadoPorHora.has(hora);
+    btn.className = "slot-admin" + (estaBloqueado ? " bloqueado" : "") + (estaOcupado ? " ocupado" : "");
+    btn.textContent = hora;
+    if (!estaOcupado){
+      btn.onclick = () => toggleBloqueo(fecha, hora, bloqueadoPorHora[hora]);
+    }
+    cont.appendChild(btn);
+  }
+}
+
+async function toggleBloqueo(fecha, hora, idExistente){
+  if (idExistente){
+    await remove(ref(db, `bloqueos/${fecha}/${idExistente}`));
+  } else {
+    const finMin = minutosDesdeAdmin(hora) + INTERVALO_MIN_ADMIN;
+    const nuevaRef = push(ref(db, "bloqueos/" + fecha));
+    await set(nuevaRef, { horaInicio: hora, horaFin: minutosAHHMMAdmin(finMin), motivo: "Bloqueado" });
+  }
+  renderSlotsBloqueo(fecha);
+}
 </script>
 </body>
 </html>
