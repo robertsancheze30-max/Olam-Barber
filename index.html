@@ -112,25 +112,17 @@
   .service-card{
     display:flex; justify-content:space-between; align-items:center;
     cursor:pointer;
-    position:relative;
-    padding-left:20px;
+    border-left:2px solid var(--gold);
+    border-bottom:2px solid var(--gold);
+    box-shadow:-6px 6px 18px -10px rgba(212,175,55,0.55);
     transition:border-color .2s, transform .15s, box-shadow .2s;
-  }
-  .service-card::before{
-    content:"";
-    position:absolute; left:0; top:14px; bottom:14px; width:3px;
-    border-radius:3px;
-    background:linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
-    opacity:0.55;
-    transition:opacity .2s;
   }
   .service-card:active{transform:scale(0.98);}
   .service-card.selected{
     border-color:var(--gold);
     background:linear-gradient(160deg, var(--panel-2) 0%, #1a1409 100%);
-    box-shadow:0 0 0 1px rgba(212,175,55,0.25), 0 8px 20px -8px rgba(212,175,55,0.35);
+    box-shadow:-8px 8px 22px -8px rgba(212,175,55,0.7);
   }
-  .service-card.selected::before{opacity:1;}
   .service-name{font-weight:700; font-size:16px; margin:0; letter-spacing:0.1px;}
   .service-meta{color:var(--muted); font-size:13px;}
   .service-price{
