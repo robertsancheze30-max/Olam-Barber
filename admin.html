@@ -229,6 +229,9 @@
 
   <!-- AGENDA -->
   <div class="view active" id="view-agenda">
+    <select id="agenda-barbero-filter" style="width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:11px; color:var(--text); font-size:14px; margin-bottom:14px; font-family:inherit;">
+      <option value="todos">Ver: Todos los barberos</option>
+    </select>
     <div class="stats-row">
       <div class="stat"><div class="num" id="stat-hoy">0</div><div class="lbl">Hoy</div></div>
       <div class="stat"><div class="num" id="stat-semana">0</div><div class="lbl">Esta semana</div></div>
@@ -295,6 +298,9 @@
 
   <!-- HISTORIAL -->
   <div class="view" id="view-historial">
+    <select id="historial-barbero-filter" style="width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:11px; color:var(--text); font-size:14px; margin-bottom:14px; font-family:inherit;">
+      <option value="todos">Ver: Todos los barberos</option>
+    </select>
     <p class="section-sub" style="color:var(--muted); font-size:13px; margin-bottom:14px;">Citas completadas o canceladas. Se guardan aquí, no en la agenda.</p>
     <input type="text" id="historial-buscar" placeholder="Buscar por nombre o teléfono" oninput="filtrarHistorial()" style="width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:11px; color:var(--text); font-size:14px; margin-bottom:14px; font-family:inherit;">
     <div id="historial-lista"><div class="loading">Cargando historial…</div></div>
@@ -319,6 +325,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 const BARBERO_PARAM = new URLSearchParams(location.search).get("barbero");
+let filtroBarberoVista = "todos";
 
 cargarAgenda();
 cargarServicios();
@@ -327,8 +334,41 @@ cargarBarberos();
 if (BARBERO_PARAM){
   document.querySelector('.tab[data-tab="servicios"]').style.display = "none";
   document.querySelector('.tab[data-tab="barberos"]').style.display = "none";
+  document.getElementById("agenda-barbero-filter").style.display = "none";
+  document.getElementById("historial-barbero-filter").style.display = "none";
   get(ref(db, "barberos/" + BARBERO_PARAM)).then(snap => {
     if (snap.exists()) document.querySelector("header .sub").textContent = "Panel de " + snap.val().nombre;
+  });
+} else {
+  poblarFiltrosBarbero();
+}
+
+function barberoActivo(){
+  return BARBERO_PARAM || (filtroBarberoVista !== "todos" ? filtroBarberoVista : null);
+}
+
+async function poblarFiltrosBarbero(){
+  const snap = await get(ref(db, "barberos"));
+  if (!snap.exists()) return;
+  const listaBarberos = snap.val();
+  const opciones = Object.entries(listaBarberos)
+    .filter(([id, b]) => b.activo !== false)
+    .map(([id, b]) => `<option value="${id}">Ver: ${b.nombre}</option>`).join("");
+
+  const selAgenda = document.getElementById("agenda-barbero-filter");
+  selAgenda.innerHTML = '<option value="todos">Ver: Todos los barberos</option>' + opciones;
+  selAgenda.addEventListener("change", () => {
+    filtroBarberoVista = selAgenda.value;
+    document.getElementById("historial-barbero-filter").value = selAgenda.value;
+    cargarAgenda();
+  });
+
+  const selHistorial = document.getElementById("historial-barbero-filter");
+  selHistorial.innerHTML = '<option value="todos">Ver: Todos los barberos</option>' + opciones;
+  selHistorial.addEventListener("change", () => {
+    filtroBarberoVista = selHistorial.value;
+    document.getElementById("agenda-barbero-filter").value = selHistorial.value;
+    cargarHistorial();
   });
 }
 
@@ -366,7 +406,8 @@ onValue(ref(db, "citas"), (snap) => {
 
   const actual = aplanarCitas(data);
   Object.entries(actual).forEach(([key, c]) => {
-    if (BARBERO_PARAM && c.barberoId !== BARBERO_PARAM) return;
+    const ba = barberoActivo();
+    if (ba && c.barberoId !== ba) return;
     const anterior = estadoConocido[key];
     if (anterior && anterior.estado !== "cancelada" && c.estado === "cancelada"){
       sonidoAlerta();
@@ -393,7 +434,8 @@ function verificarAvisoManana(data){
   if (minutosActuales < 540 || minutosActuales >= 780) return; // solo entre 09:00 y 13:00
   if (localStorage.getItem("avisoManana_" + hoyIso)) return;
 
-  const citasHoy = data[hoyIso] ? Object.values(data[hoyIso]).filter(c => c.estado !== "cancelada" && (!BARBERO_PARAM || c.barberoId === BARBERO_PARAM)) : [];
+  const baHoy = barberoActivo();
+  const citasHoy = data[hoyIso] ? Object.values(data[hoyIso]).filter(c => c.estado !== "cancelada" && (!baHoy || c.barberoId === baHoy)) : [];
   if (citasHoy.length === 0) return;
 
   localStorage.setItem("avisoManana_" + hoyIso, "1");
@@ -420,6 +462,7 @@ window.cambiarTab = function(tab){
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById("view-" + tab).classList.add("active");
+  if (tab === "agenda") cargarAgenda();
   if (tab === "historial") cargarHistorial();
   if (tab === "horarios") renderSlotsBloqueo(document.getElementById("bl-fecha").value);
   if (tab === "barberos") cargarBarberos();
@@ -463,7 +506,7 @@ async function cargarAgenda(){
     const citas = todasFechas[fecha];
     const idsOrdenados = Object.keys(citas)
       .filter(id => citas[id].estado !== "completada" && citas[id].estado !== "cancelada")
-      .filter(id => !BARBERO_PARAM || citas[id].barberoId === BARBERO_PARAM)
+      .filter(id => !barberoActivo() || citas[id].barberoId === barberoActivo())
       .sort((a,b) => citas[a].hora.localeCompare(citas[b].hora));
     if (idsOrdenados.length === 0) return;
 
@@ -529,7 +572,7 @@ window.filtrarHistorial = function(){
     const citas = historialDatos[fecha];
     const idsFiltrados = Object.keys(citas)
       .filter(id => citas[id].estado === "completada" || citas[id].estado === "cancelada")
-      .filter(id => !BARBERO_PARAM || citas[id].barberoId === BARBERO_PARAM)
+      .filter(id => !barberoActivo() || citas[id].barberoId === barberoActivo())
       .filter(id => {
         if (!termino) return true;
         const c = citas[id];
@@ -603,7 +646,8 @@ function actualizarStats(todasFechas){
   Object.keys(todasFechas).forEach(fecha => {
     Object.values(todasFechas[fecha]).forEach(c => {
       if (c.estado === "cancelada") return;
-      if (BARBERO_PARAM && c.barberoId !== BARBERO_PARAM) return;
+      const baStats = barberoActivo();
+      if (baStats && c.barberoId !== baStats) return;
       if (fecha >= hoyIso && fecha < fechaLimite){
         if (fecha === hoyIso) hoy++;
         semana++;
@@ -789,7 +833,7 @@ async function cargarBarberos(){
 window.copiarEnlaceBarbero = function(id){
   const url = `${location.origin}${location.pathname}?barbero=${id}`;
   if (navigator.clipboard){
-    navigator.clipboard.writeText(url).then(() => alert("Enlace copiado:\n" + url));
+    navigator.clipboard.writeText(url).then(() => prompt("Enlace copiado. También puedes seleccionarlo aquí:", url));
   } else {
     prompt("Copia este enlace:", url);
   }
