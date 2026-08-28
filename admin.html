@@ -341,10 +341,23 @@ if (BARBERO_PARAM){
   });
 } else {
   poblarFiltrosBarbero();
+  detectarMiBarbero();
 }
 
 function barberoActivo(){
   return BARBERO_PARAM || (filtroBarberoVista !== "todos" ? filtroBarberoVista : null);
+}
+
+let MI_BARBERO_ID = null;
+async function detectarMiBarbero(){
+  const snap = await get(ref(db, "barberos"));
+  if (!snap.exists()) return;
+  const entrada = Object.entries(snap.val()).find(([id, b]) => b.nombre.trim() === "Derwin Muñoz");
+  if (entrada) MI_BARBERO_ID = entrada[0];
+}
+function puedeGestionar(barberoId){
+  if (BARBERO_PARAM) return true; // enlace propio de un barbero: siempre gestiona lo suyo
+  return barberoId === MI_BARBERO_ID; // panel maestro: solo gestiona lo de Derwin
 }
 
 async function poblarFiltrosBarbero(){
@@ -517,6 +530,7 @@ async function cargarAgenda(){
 
     idsOrdenados.forEach(id => {
       const c = citas[id];
+      const gestionable = puedeGestionar(c.barberoId);
       const card = document.createElement("div");
       card.className = "cita-card";
       card.innerHTML = `
@@ -529,12 +543,14 @@ async function cargarAgenda(){
           </div>
           <span class="badge ${c.estado}">${c.estado}</span>
         </div>
+        ${gestionable ? `
         <button class="btn small whatsapp" onclick="recordarWhatsApp('${c.telefono}','${c.nombre.replace(/'/g,"")}','${c.servicioNombre.replace(/'/g,"")}','${fecha}','${c.hora}')">Recordar por WhatsApp</button>
         <div class="cita-actions">
           <button class="btn small ghost" onclick="toggleReprogramar('${fecha}','${id}')">Reprogramar</button>
           <button class="btn small ghost" onclick="marcarEstado('${fecha}','${id}','completada')">Completada</button>
           <button class="btn small danger-outline" onclick="marcarEstado('${fecha}','${id}','cancelada')">Cancelar</button>
         </div>
+        ` : `<p style="color:var(--muted); font-size:12px; margin-top:10px;">Solo ${c.barberoNombre || "el barbero"} puede gestionar esta cita.</p>`}
         <div class="servicio-edit" id="reprogramar-${fecha}-${id}" style="display:none;">
           <input type="date" id="reprog-fecha-${fecha}-${id}" value="${fecha}">
           <input type="time" id="reprog-hora-${fecha}-${id}" value="${c.hora}">
