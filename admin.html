@@ -998,9 +998,9 @@ async function renderSlotsBloqueo(fecha){
   const bloqueadoPorHora = {};
   Object.entries(bloqueos).forEach(([id, b]) => { bloqueadoPorHora[b.horaInicio] = id; });
 
-  const ocupadoPorHora = new Set(
-    Object.values(citas).filter(c => c.estado !== "cancelada" && c.barberoId === barberoSel).map(c => c.hora)
-  );
+  const rangosOcupados = Object.values(citas)
+    .filter(c => c.estado !== "cancelada" && c.barberoId === barberoSel)
+    .map(c => ({ ini: minutosDesdeAdmin(c.hora), fin: minutosDesdeAdmin(c.hora) + INTERVALO_MIN_ADMIN }));
 
   const rangosRecurrentes = Object.values(recurrentes).map(r => ({
     ini: minutosDesdeAdmin(r.horaInicio), fin: minutosDesdeAdmin(r.horaFin)
@@ -1014,7 +1014,7 @@ async function renderSlotsBloqueo(fecha){
     const hora = minutosAHHMMAdmin(t);
     const btn = document.createElement("div");
     const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
-    const estaOcupado = ocupadoPorHora.has(hora);
+    const estaOcupado = rangosOcupados.some(r => t < r.fin && (t + INTERVALO_MIN_ADMIN) > r.ini);
     const esRecurrente = rangosRecurrentes.some(r => t >= r.ini && t < r.fin);
     btn.className = "slot-admin" + (estaBloqueado ? " bloqueado" : "") + (estaOcupado ? " ocupado" : "") + (esRecurrente ? " recurrente" : "");
     btn.textContent = hora;

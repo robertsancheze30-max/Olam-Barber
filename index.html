@@ -426,6 +426,17 @@ const HORARIO_POR_DIA = {
 };
 const INTERVALO_MIN = 30; // slots cada 30 min
 
+// Horario real de la barbería (techo que ningún barbero puede superar)
+const HORARIO_TIENDA = {
+  0: { apertura: "10:00", cierre: "17:00" }, // domingo
+  1: { apertura: "10:00", cierre: "21:00" },
+  2: { apertura: "10:00", cierre: "21:00" },
+  3: { apertura: "10:00", cierre: "21:00" },
+  4: { apertura: "10:00", cierre: "21:00" },
+  5: { apertura: "10:00", cierre: "21:00" },
+  6: { apertura: "10:00", cierre: "21:00" }
+};
+
 // ---------- SERVICIOS POR DEFECTO (se cargan a Firebase si no existen) ----------
 const SERVICIOS_DEFAULT = {
   s1: { nombre: "Perfilado de cejas", precio: 5000, duracion: 10, activo: true },
@@ -581,6 +592,7 @@ function renderFechas(){
     d.setDate(hoy.getDate() + i);
     const diaSemana = d.getDay();
     if (!barbero.dias.includes(diaSemana)) continue;
+    if (!HORARIO_TIENDA[diaSemana]) continue;
     const iso = d.toISOString().slice(0,10);
     if (diasCerrados[iso]) continue;
     if (!primerDiaValido) primerDiaValido = iso;
@@ -633,12 +645,14 @@ function renderSlots(){
   const servicio = servicios[estado.servicioId];
   const barbero = barberos[estado.barberoId];
   const duracion = servicio.duracion;
-  const inicio = minutosDesde(barbero.apertura);
-  const fin = minutosDesde(barbero.cierre);
+  const diaSemana = new Date(estado.fecha + "T00:00:00").getDay();
+  const horarioTienda = HORARIO_TIENDA[diaSemana];
+  const inicio = Math.max(minutosDesde(barbero.apertura), minutosDesde(horarioTienda.apertura));
+  const fin = Math.min(minutosDesde(barbero.cierre), minutosDesde(horarioTienda.cierre));
 
-  const ocupados = Object.values(citasDelDia)
+  const ocupadosCitas = Object.values(citasDelDia)
     .filter(c => c.estado !== "cancelada")
-    .map(c => ({ ini: minutosDesde(c.hora), fin: minutosDesde(c.hora) + Number(c.duracion) }));
+    .map(c => ({ ini: minutosDesde(c.hora), fin: minutosDesde(c.hora) + INTERVALO_MIN }));
 
   const bloqueos = Object.values(bloqueosDelDia)
     .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
@@ -646,16 +660,17 @@ function renderSlots(){
   const recurrentes = Object.values(bloqueosRecurrentesDelBarbero)
     .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
 
-  const ocupadosTotal = ocupados.concat(bloqueos).concat(recurrentes);
+  const bloqueosManuales = bloqueos.concat(recurrentes);
 
   const esHoy = estado.fecha === new Date().toISOString().slice(0,10);
   const ahoraMin = new Date().getHours()*60 + new Date().getMinutes();
 
   let huboSlots = false;
   for (let t = inicio; t + duracion <= fin; t += INTERVALO_MIN){
-    const chocaConOcupado = ocupadosTotal.some(o => t < o.fin && (t+duracion) > o.ini);
+    const chocaConCita = ocupadosCitas.some(o => t < o.fin && (t+INTERVALO_MIN) > o.ini);
+    const chocaConBloqueo = bloqueosManuales.some(o => t < o.fin && (t+duracion) > o.ini);
     const yaPaso = esHoy && t <= ahoraMin;
-    if (chocaConOcupado || yaPaso) continue;
+    if (chocaConCita || chocaConBloqueo || yaPaso) continue;
     huboSlots = true;
     const btn = document.createElement("div");
     btn.className = "slot";
