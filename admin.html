@@ -396,17 +396,36 @@ if ("Notification" in window && Notification.permission === "default"){
 function sonidoAlerta(){
   try{
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    osc.start();
-    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.stop(ctx.currentTime + 0.4);
+    for (let rep = 0; rep < 4; rep++){
+      const start = ctx.currentTime + rep * 0.5;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "square";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.25, start);
+      osc.start(start);
+      osc.frequency.setValueAtTime(660, start + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.4);
+      osc.stop(start + 0.4);
+    }
   } catch(e){}
+}
+
+function mostrarBannerAlerta(titulo, cuerpo){
+  const existente = document.getElementById("alerta-banner-overlay");
+  if (existente) existente.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "alerta-banner-overlay";
+  overlay.style.cssText = "position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; padding:24px;";
+  overlay.innerHTML = `
+    <div style="max-width:340px; width:100%; background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%); border:2px solid var(--gold); border-radius:20px; padding:28px 22px; text-align:center; box-shadow:0 0 40px rgba(212,175,55,0.5);">
+      <p style="font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:0.5px; margin:0 0 10px; background:linear-gradient(120deg, var(--gold-bright), var(--gold) 55%, var(--gold-deep)); -webkit-background-clip:text; background-clip:text; color:transparent;">${titulo}</p>
+      <p style="color:var(--text); font-size:14px; line-height:1.5; margin:0 0 22px;">${cuerpo}</p>
+      <button class="btn" onclick="document.getElementById('alerta-banner-overlay').remove()">Entendido</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 let estadoConocido = null;
@@ -417,6 +436,7 @@ onValue(ref(db, "citas"), (snap) => {
     // Primera carga: solo guardamos referencia, no alertamos.
     estadoConocido = aplanarCitas(data);
     verificarAvisoManana(data);
+    actualizarBadge(estadoConocido);
     return;
   }
 
@@ -425,23 +445,47 @@ onValue(ref(db, "citas"), (snap) => {
     const ba = barberoActivo();
     if (ba && c.barberoId !== ba) return;
     const anterior = estadoConocido[key];
-    if (anterior && anterior.estado !== "cancelada" && c.estado === "cancelada"){
+    if (!anterior){
+      sonidoAlerta();
+      if (navigator.vibrate) navigator.vibrate([150,80,150,80,150]);
+      const cuerpoNueva = `${c.nombre} reservó ${c.servicioNombre} el ${fechaLegible(c.fecha)} a las ${c.hora}${c.barberoNombre ? " con " + c.barberoNombre : ""}.`;
+      mostrarBannerAlerta("¡Nueva cita! 🎉", cuerpoNueva);
+      if ("Notification" in window && Notification.permission === "granted"){
+        new Notification("Nueva cita 🎉", { body: cuerpoNueva });
+      }
+      return;
+    }
+    if (anterior.estado !== "cancelada" && c.estado === "cancelada"){
       sonidoAlerta();
       if (navigator.vibrate) navigator.vibrate([200,100,200]);
+      const cuerpoCancel = `${c.nombre} canceló su cita del ${c.fecha} a las ${c.hora}.`;
+      mostrarBannerAlerta("Cita cancelada ❌", cuerpoCancel);
       if ("Notification" in window && Notification.permission === "granted"){
-        new Notification("Cita cancelada ❌", {
-          body: `${c.nombre} canceló su cita del ${c.fecha} a las ${c.hora}.`
-        });
+        new Notification("Cita cancelada ❌", { body: cuerpoCancel });
       }
     }
   });
   estadoConocido = actual;
+  actualizarBadge(actual);
 
   // Refrescamos las vistas si están abiertas, para que se vea al instante.
   if (document.getElementById("view-agenda").classList.contains("active")) cargarAgenda();
   if (document.getElementById("view-historial").classList.contains("active")) cargarHistorial();
   if (document.getElementById("view-horarios").classList.contains("active")) renderSlotsBloqueo(document.getElementById("bl-fecha").value);
 });
+
+function actualizarBadge(citasPlanas){
+  if (!("setAppBadge" in navigator)) return;
+  const ba = barberoActivo();
+  const pendientes = Object.values(citasPlanas).filter(c =>
+    c.estado === "pendiente" && (!ba || c.barberoId === ba)
+  ).length;
+  if (pendientes > 0){
+    navigator.setAppBadge(pendientes).catch(() => {});
+  } else {
+    navigator.clearAppBadge().catch(() => {});
+  }
+}
 
 function verificarAvisoManana(data){
   const ahora = new Date();
