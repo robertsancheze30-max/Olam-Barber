@@ -156,12 +156,15 @@
     padding:11px; color:var(--text); font-size:14px; margin-bottom:8px; font-family:inherit;
   }
   .dias-checks{
-    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:8px;
   }
   .dias-checks label{
-    display:flex; align-items:center; gap:4px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
     background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
-    padding:6px 10px; font-size:12px; color:var(--text);
+    padding:10px 4px; font-size:13px; color:var(--text); white-space:nowrap;
+  }
+  .dias-checks input[type=checkbox]{
+    width:16px; height:16px; margin:0; flex-shrink:0; accent-color:var(--gold);
   }
   .barbero-admin-row{
     background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
