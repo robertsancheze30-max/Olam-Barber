@@ -9,10 +9,11 @@ module.exports = (req, res) => {
   }
 
   const manifest = {
+    id: barbero ? `/admin.html?barbero=${encodeURIComponent(barbero)}` : "/admin.html",
     name: barbero ? "Mi Panel - Olam Barber" : "Panel Admin - Olam Barber",
     short_name: barbero ? "Mi Panel" : "Panel Admin",
     start_url: barbero ? `/admin.html?barbero=${encodeURIComponent(barbero)}` : "/admin.html",
-    scope: "/",
+    scope: barbero ? `/admin.html?barbero=${encodeURIComponent(barbero)}` : "/admin.html",
     display: "standalone",
     background_color: "#0a0906",
     theme_color: "#0a0906",
@@ -23,6 +24,6 @@ module.exports = (req, res) => {
   };
 
   res.setHeader("Content-Type", "application/manifest+json");
- res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store");
   res.status(200).send(JSON.stringify(manifest));
 };
