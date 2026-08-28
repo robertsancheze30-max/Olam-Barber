@@ -810,7 +810,7 @@ async function cargarBarberos(){
           <div class="meta">${diasTextoAdmin(b.dias)} · ${b.apertura}–${b.cierre}</div>
         </div>
         <div class="acciones">
-          <button class="btn small ghost" onclick="copiarEnlaceBarbero('${id}')">Copiar su panel</button>
+          ${b.nombre.trim() === "Derwin Muñoz" ? "" : `<button class="btn small ghost" onclick="copiarEnlaceBarbero('${id}')">Copiar su panel</button>`}
           <button class="btn small ghost" onclick="toggleEdicionBarbero('${id}')">Editar</button>
           <button class="btn small ghost" onclick="toggleBarbero('${id}', ${b.activo === false})">${b.activo === false ? "Activar" : "Desactivar"}</button>
         </div>
