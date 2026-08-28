@@ -1,5 +1,12 @@
 module.exports = (req, res) => {
-  const barbero = req.query.barbero;
+  let barbero = req.query.barbero;
+
+  if (!barbero && req.headers.referer){
+    try {
+      const refUrl = new URL(req.headers.referer);
+      barbero = refUrl.searchParams.get("barbero");
+    } catch(e){}
+  }
 
   const manifest = {
     name: barbero ? "Mi Panel - Olam Barber" : "Panel Admin - Olam Barber",
