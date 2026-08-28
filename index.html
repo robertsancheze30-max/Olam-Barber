@@ -543,7 +543,13 @@ function seleccionarServicio(id){
 function renderBarberos(){
   const cont = document.getElementById("lista-barberos");
   cont.innerHTML = "";
-  const activos = Object.entries(barberos).filter(([id, b]) => b.activo !== false);
+  const activos = Object.entries(barberos)
+    .filter(([id, b]) => b.activo !== false)
+    .sort(([,a], [,b]) => {
+      if (a.nombre.trim() === "Derwin Muñoz") return -1;
+      if (b.nombre.trim() === "Derwin Muñoz") return 1;
+      return 0;
+    });
   if (activos.length === 0){
     cont.innerHTML = '<div class="empty-note">No hay barberos disponibles por ahora.</div>';
     return;
