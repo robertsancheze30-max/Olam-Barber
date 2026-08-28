@@ -3,7 +3,8 @@ const path = require("path");
 
 module.exports = (req, res) => {
   const barbero = req.query.barbero;
-  const filePath = path.join(process.cwd(), "admin.html");
+  const filePath = path.join(process.cwd(), "admin-src.html");
+
   let html = fs.readFileSync(filePath, "utf8");
 
   const manifestHref = barbero
