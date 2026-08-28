@@ -155,6 +155,30 @@
   .service-icon svg{width:22px; height:22px;}
   .service-name{font-weight:700; font-size:15px; flex:1; letter-spacing:0.1px;}
   .service-divider{width:1px; align-self:stretch; background:var(--border); margin:2px 0;}
+
+  .barbero-card{
+    display:flex; align-items:center; gap:14px;
+    cursor:pointer;
+    border-left:2px solid var(--gold);
+    border-bottom:2px solid var(--gold);
+    box-shadow:-6px 6px 18px -10px rgba(212,175,55,0.55);
+    transition:border-color .2s, transform .15s, box-shadow .2s;
+  }
+  .barbero-card:active{transform:scale(0.98);}
+  .barbero-card.selected{
+    border-color:var(--gold);
+    background:linear-gradient(160deg, var(--panel-2) 0%, #1a1409 100%);
+    box-shadow:-8px 8px 22px -8px rgba(212,175,55,0.7);
+  }
+  .barbero-avatar{
+    flex:0 0 auto; width:46px; height:46px; border-radius:50%;
+    border:1.5px solid var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--gold-bright);
+  }
+  .barbero-avatar svg{width:24px; height:24px;}
+  .barbero-nombre{font-weight:700; font-size:16px;}
+  .barbero-dias{color:var(--muted); font-size:12.5px; margin-top:2px;}
   .service-meta{color:var(--muted); font-size:13px;}
   .service-price{
     font-family:'Bebas Neue', sans-serif;
@@ -311,18 +335,28 @@
     </div>
   </section>
 
-  <!-- PASO 2: FECHA Y HORA -->
+  <!-- PASO 2: BARBERO -->
+  <section class="screen" id="screen-barbero">
+    <span class="back-link" onclick="irPaso(1)">← Cambiar servicio</span>
+    <p class="section-title">Elige tu barbero</p>
+    <p class="section-sub">Cada uno con su propia disponibilidad</p>
+    <div id="lista-barberos">
+      <div class="loading">Cargando barberos…</div>
+    </div>
+  </section>
+
+  <!-- PASO 3: FECHA Y HORA -->
   <section class="screen" id="screen-fecha">
-    <span class="back-link" id="back-link-fecha" onclick="irPaso(1)">← Cambiar servicio</span>
+    <span class="back-link" id="back-link-fecha" onclick="irPaso(2)">← Cambiar barbero</span>
     <p class="section-title">Elige día y hora</p>
     <p class="section-sub" id="servicio-elegido-label"></p>
     <div class="date-scroll" id="date-scroll"></div>
     <div class="slots-grid" id="slots-grid"></div>
   </section>
 
-  <!-- PASO 3: DATOS + RESUMEN -->
+  <!-- PASO 4: DATOS + RESUMEN -->
   <section class="screen" id="screen-resumen">
-    <span class="back-link" onclick="irPaso(2)">← Cambiar horario</span>
+    <span class="back-link" onclick="irPaso(3)">← Cambiar horario</span>
     <p class="section-title" id="titulo-resumen">Confirma tu cita</p>
     <div class="card" id="resumen-card"></div>
     <input type="text" id="input-nombre" placeholder="Tu nombre completo" maxlength="50">
@@ -330,7 +364,7 @@
     <button class="btn" id="btn-confirmar" onclick="confirmarReserva()">Confirmar cita</button>
   </section>
 
-  <!-- PASO 4: CONFIRMACION -->
+  <!-- PASO 5: CONFIRMACION -->
   <section class="screen" id="screen-confirmacion">
     <div class="confirm-check">
       <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -402,12 +436,19 @@ const SERVICIOS_DEFAULT = {
   s6: { nombre: "Corte + barba + cejas", precio: 18000, duracion: 60, activo: true }
 };
 
+// ---------- BARBEROS POR DEFECTO (se cargan a Firebase si no existen) ----------
+const BARBEROS_DEFAULT = {
+  b1: { nombre: "Barbero 1", activo: true, dias: [1,2,3,4,5,6], apertura: "10:00", cierre: "21:00" },
+  b2: { nombre: "Barbero 2", activo: true, dias: [1,2,3,4,5,6], apertura: "10:00", cierre: "21:00" }
+};
+
 let servicios = {};
+let barberos = {};
 let citasDelDia = {};
 let bloqueosDelDia = {};
+let bloqueosRecurrentesDelBarbero = {};
 let diasCerrados = {};
-let bloqueosRecurrentes = {};
-let estado = { servicioId: null, fecha: null, hora: null };
+let estado = { servicioId: null, barberoId: null, fecha: null, hora: null };
 let reprogramando = null; // { fechaOriginal, idOriginal, nombre, telefono }
 
 const DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -418,10 +459,10 @@ function formatoMoneda(n){
 }
 
 async function cargarServicios(){
-  const [snap, snapCerrados, snapRecurrentes] = await Promise.all([
+  const [snap, snapBarberos, snapCerrados] = await Promise.all([
     get(ref(db, "servicios")),
-    get(ref(db, "diasCerrados")),
-    get(ref(db, "bloqueosRecurrentes"))
+    get(ref(db, "barberos")),
+    get(ref(db, "diasCerrados"))
   ]);
   if (snap.exists()){
     servicios = snap.val();
@@ -429,8 +470,13 @@ async function cargarServicios(){
     servicios = SERVICIOS_DEFAULT;
     await set(ref(db, "servicios"), SERVICIOS_DEFAULT);
   }
+  if (snapBarberos.exists()){
+    barberos = snapBarberos.val();
+  } else {
+    barberos = BARBEROS_DEFAULT;
+    await set(ref(db, "barberos"), BARBEROS_DEFAULT);
+  }
   diasCerrados = snapCerrados.exists() ? snapCerrados.val() : {};
-  bloqueosRecurrentes = snapRecurrentes.exists() ? snapRecurrentes.val() : {};
 
   const nombreGuardado = localStorage.getItem("olamBarberNombre");
   const telefonoGuardado = localStorage.getItem("olamBarberTelefono");
@@ -480,35 +526,61 @@ function renderServicios(){
 function seleccionarServicio(id){
   estado.servicioId = id;
   document.querySelectorAll(".service-card").forEach(c => c.classList.toggle("selected", c.dataset.id === id));
-  setTimeout(() => irPaso(2), 150);
+  setTimeout(() => window.irPaso(2), 150);
 }
 
-function irPaso(n){
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  const map = { 1:"screen-servicios", 2:"screen-fecha", 3:"screen-resumen", 4:"screen-confirmacion" };
-  document.getElementById(map[n]).classList.add("active");
-  document.querySelectorAll(".step-dot").forEach(d => {
-    const step = Number(d.dataset.step);
-    d.classList.toggle("active", step === n);
-    d.classList.toggle("done", step < n);
-  });
-  if (n === 2){
-    const s = servicios[estado.servicioId];
-    document.getElementById("servicio-elegido-label").textContent = `${s.nombre} · ${formatoMoneda(s.precio)}`;
-    renderFechas();
+function renderBarberos(){
+  const cont = document.getElementById("lista-barberos");
+  cont.innerHTML = "";
+  const activos = Object.entries(barberos).filter(([id, b]) => b.activo !== false);
+  if (activos.length === 0){
+    cont.innerHTML = '<div class="empty-note">No hay barberos disponibles por ahora.</div>';
+    return;
   }
+  activos.forEach(([id, b]) => {
+    const div = document.createElement("div");
+    div.className = "card barbero-card";
+    div.dataset.id = id;
+    div.innerHTML = `
+      <div class="barbero-avatar">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <div class="barbero-nombre">${b.nombre}</div>
+        <div class="barbero-dias">${diasTrabajoTexto(b.dias)}</div>
+      </div>
+    `;
+    div.onclick = () => seleccionarBarbero(id);
+    cont.appendChild(div);
+  });
+}
+
+function diasTrabajoTexto(dias){
+  if (!dias || dias.length === 0) return "";
+  if (dias.length === 7) return "Todos los días";
+  return dias.slice().sort().map(d => DIAS[d]).join(", ");
+}
+
+function seleccionarBarbero(id){
+  estado.barberoId = id;
+  document.querySelectorAll(".barbero-card").forEach(c => c.classList.toggle("selected", c.dataset.id === id));
+  setTimeout(() => window.irPaso(3), 150);
 }
 
 function renderFechas(){
   const cont = document.getElementById("date-scroll");
   cont.innerHTML = "";
+  const barbero = barberos[estado.barberoId];
   const hoy = new Date();
   let primerDiaValido = null;
   for (let i=0; i<14; i++){
     const d = new Date(hoy);
     d.setDate(hoy.getDate() + i);
     const diaSemana = d.getDay();
-    if (!HORARIO_POR_DIA[diaSemana]) continue;
+    if (!barbero.dias.includes(diaSemana)) continue;
     const iso = d.toISOString().slice(0,10);
     if (diasCerrados[iso]) continue;
     if (!primerDiaValido) primerDiaValido = iso;
@@ -520,7 +592,7 @@ function renderFechas(){
     cont.appendChild(chip);
   }
   if (primerDiaValido) seleccionarFecha(primerDiaValido);
-  else document.getElementById("slots-grid").innerHTML = '<div class="empty-note">No hay días disponibles próximamente.</div>';
+  else document.getElementById("slots-grid").innerHTML = '<div class="empty-note">Este barbero no tiene días disponibles próximamente.</div>';
 }
 
 async function seleccionarFecha(iso){
@@ -530,10 +602,18 @@ async function seleccionarFecha(iso){
   const grid = document.getElementById("slots-grid");
   grid.innerHTML = '<div class="loading">Buscando horas libres…</div>';
 
-  const snap = await get(ref(db, "citas/" + iso));
-  citasDelDia = snap.exists() ? snap.val() : {};
-  const snapBloqueos = await get(ref(db, "bloqueos/" + iso));
+  const [snap, snapBloqueos, snapRecurrentes] = await Promise.all([
+    get(ref(db, "citas/" + iso)),
+    get(ref(db, `bloqueos/${iso}/${estado.barberoId}`)),
+    get(ref(db, "bloqueosRecurrentes/" + estado.barberoId))
+  ]);
+  const todasCitasDia = snap.exists() ? snap.val() : {};
+  citasDelDia = {};
+  Object.entries(todasCitasDia).forEach(([id, c]) => {
+    if (c.barberoId === estado.barberoId) citasDelDia[id] = c;
+  });
   bloqueosDelDia = snapBloqueos.exists() ? snapBloqueos.val() : {};
+  bloqueosRecurrentesDelBarbero = snapRecurrentes.exists() ? snapRecurrentes.val() : {};
   renderSlots();
 }
 
@@ -551,11 +631,10 @@ function renderSlots(){
   const grid = document.getElementById("slots-grid");
   grid.innerHTML = "";
   const servicio = servicios[estado.servicioId];
+  const barbero = barberos[estado.barberoId];
   const duracion = servicio.duracion;
-  const diaSemana = new Date(estado.fecha + "T00:00:00").getDay();
-  const horarioHoy = HORARIO_POR_DIA[diaSemana];
-  const inicio = minutosDesde(horarioHoy.apertura);
-  const fin = minutosDesde(horarioHoy.cierre);
+  const inicio = minutosDesde(barbero.apertura);
+  const fin = minutosDesde(barbero.cierre);
 
   const ocupados = Object.values(citasDelDia)
     .filter(c => c.estado !== "cancelada")
@@ -564,7 +643,7 @@ function renderSlots(){
   const bloqueos = Object.values(bloqueosDelDia)
     .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
 
-  const recurrentes = Object.values(bloqueosRecurrentes)
+  const recurrentes = Object.values(bloqueosRecurrentesDelBarbero)
     .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
 
   const ocupadosTotal = ocupados.concat(bloqueos).concat(recurrentes);
@@ -593,7 +672,7 @@ function seleccionarHora(hora, el){
   estado.hora = hora;
   document.querySelectorAll(".slot").forEach(s => s.classList.remove("selected"));
   el.classList.add("selected");
-  setTimeout(() => irPaso(3), 150);
+  setTimeout(() => window.irPaso(4), 150);
 }
 
 function fechaLegible(iso){
@@ -602,10 +681,15 @@ function fechaLegible(iso){
 }
 
 window.irPaso = function(n){
-  if (n === 3){
+  if (n === 2){
+    renderBarberos();
+  }
+  if (n === 4){
     const s = servicios[estado.servicioId];
+    const b = barberos[estado.barberoId];
     document.getElementById("resumen-card").innerHTML = `
       <div class="summary-row"><span class="label">Servicio</span><span class="value">${s.nombre}</span></div>
+      <div class="summary-row"><span class="label">Barbero</span><span class="value">${b.nombre}</span></div>
       <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(estado.fecha)}</span></div>
       <div class="summary-row"><span class="label">Hora</span><span class="value">${estado.hora}</span></div>
       <div class="summary-row"><span class="label">Precio</span><span class="value">${formatoMoneda(s.precio)}</span></div>
@@ -621,7 +705,7 @@ window.irPaso = function(n){
 };
 function irPasoInterno(n){
   document.querySelectorAll(".screen").forEach(sc => sc.classList.remove("active"));
-  const map = { 1:"screen-servicios", 2:"screen-fecha", 3:"screen-resumen", 4:"screen-confirmacion", "mis-citas":"screen-mis-citas" };
+  const map = { 1:"screen-servicios", 2:"screen-barbero", 3:"screen-fecha", 4:"screen-resumen", 5:"screen-confirmacion", "mis-citas":"screen-mis-citas" };
   document.getElementById(map[n]).classList.add("active");
   document.querySelectorAll(".step-dot").forEach(d => {
     const step = Number(d.dataset.step);
@@ -629,9 +713,11 @@ function irPasoInterno(n){
     d.classList.toggle("done", step < n);
   });
   const backFecha = document.getElementById("back-link-fecha");
-  if (n === 2){
-    backFecha.textContent = reprogramando ? "← Cancelar reprogramación" : "← Cambiar servicio";
-    backFecha.onclick = reprogramando ? () => { reprogramando = null; irPasoInterno('mis-citas'); } : () => irPaso(1);
+  if (n === 3){
+    const s = servicios[estado.servicioId];
+    document.getElementById("servicio-elegido-label").textContent = `${s.nombre} · ${formatoMoneda(s.precio)}`;
+    backFecha.textContent = reprogramando ? "← Cancelar reprogramación" : "← Cambiar barbero";
+    backFecha.onclick = reprogramando ? () => { reprogramando = null; irPasoInterno('mis-citas'); } : () => window.irPaso(2);
     renderFechas();
   }
   window.scrollTo(0,0);
@@ -680,11 +766,12 @@ window.buscarMisCitas = async function(){
     card.className = "card";
     card.innerHTML = `
       <div class="summary-row"><span class="label">Servicio</span><span class="value">${c.servicioNombre}</span></div>
+      <div class="summary-row"><span class="label">Barbero</span><span class="value">${c.barberoNombre || "—"}</span></div>
       <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(c.fecha)}</span></div>
       <div class="summary-row"><span class="label">Hora</span><span class="value">${c.hora}</span></div>
       <div class="summary-row"><span class="label">Estado</span><span class="value">${c.estado}</span></div>
       <div class="btn-row">
-        <button class="btn secondary" onclick="iniciarReprogramacion('${c.fecha}','${c.id}','${(c.nombre||"").replace(/'/g,"")}','${c.telefono}','${c.servicioId}')">Reprogramar</button>
+        <button class="btn secondary" onclick="iniciarReprogramacion('${c.fecha}','${c.id}','${(c.nombre||"").replace(/'/g,"")}','${c.telefono}','${c.servicioId}','${c.barberoId}')">Reprogramar</button>
         <button class="btn secondary" onclick="cancelarMiCita('${c.fecha}','${c.id}', this)">Cancelar</button>
       </div>
     `;
@@ -692,10 +779,10 @@ window.buscarMisCitas = async function(){
   });
 };
 
-window.iniciarReprogramacion = function(fecha, id, nombre, telefono, servicioId){
+window.iniciarReprogramacion = function(fecha, id, nombre, telefono, servicioId, barberoId){
   reprogramando = { fechaOriginal: fecha, idOriginal: id, nombre, telefono };
-  estado = { servicioId, fecha: null, hora: null };
-  irPasoInterno(2);
+  estado = { servicioId, barberoId, fecha: null, hora: null };
+  irPasoInterno(3);
 };
 
 window.cancelarMiCita = async function(fecha, id, btn){
@@ -718,10 +805,13 @@ window.confirmarReserva = async function(){
   btn.textContent = reprogramando ? "Guardando…" : "Reservando…";
 
   const s = servicios[estado.servicioId];
+  const b = barberos[estado.barberoId];
   const nuevaCita = {
     nombre, telefono,
     servicioId: estado.servicioId,
     servicioNombre: s.nombre,
+    barberoId: estado.barberoId,
+    barberoNombre: b.nombre,
     hora: estado.hora,
     duracion: s.duracion,
     precio: s.precio,
@@ -742,13 +832,14 @@ window.confirmarReserva = async function(){
 
     document.getElementById("resumen-final-card").innerHTML = `
       <div class="summary-row"><span class="label">Servicio</span><span class="value">${s.nombre}</span></div>
+      <div class="summary-row"><span class="label">Barbero</span><span class="value">${b.nombre}</span></div>
       <div class="summary-row"><span class="label">Fecha</span><span class="value">${fechaLegible(estado.fecha)}</span></div>
       <div class="summary-row"><span class="label">Hora</span><span class="value">${estado.hora}</span></div>
       <div class="summary-row"><span class="label">Precio</span><span class="value">${formatoMoneda(s.precio)}</span></div>
     `;
     document.getElementById("confirm-title-txt").textContent = reprogramando ? "¡Cita reprogramada!" : "¡Cita reservada!";
     reprogramando = null;
-    irPasoInterno(4);
+    irPasoInterno(5);
   } catch(err){
     alert("Hubo un problema. Intenta de nuevo.");
     console.error(err);
@@ -759,7 +850,7 @@ window.confirmarReserva = async function(){
 };
 
 window.reiniciar = function(){
-  estado = { servicioId: null, fecha: null, hora: null };
+  estado = { servicioId: null, barberoId: null, fecha: null, hora: null };
   reprogramando = null;
   document.getElementById("input-nombre").value = localStorage.getItem("olamBarberNombre") || "";
   document.getElementById("input-telefono").value = localStorage.getItem("olamBarberTelefono") || "";

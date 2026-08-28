@@ -155,6 +155,22 @@
     width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
     padding:11px; color:var(--text); font-size:14px; margin-bottom:8px; font-family:inherit;
   }
+  .dias-checks{
+    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;
+  }
+  .dias-checks label{
+    display:flex; align-items:center; gap:4px;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    padding:6px 10px; font-size:12px; color:var(--text);
+  }
+  .barbero-admin-row{
+    background:linear-gradient(160deg, var(--panel) 0%, #14100a 100%);
+    border-left:2px solid var(--gold); border-bottom:2px solid var(--gold);
+    box-shadow:-6px 6px 18px -10px rgba(212,175,55,0.55);
+    border-radius:12px;
+    padding:14px; margin-bottom:10px;
+  }
+  .barbero-admin-row.inactivo{opacity:0.45; box-shadow:none;}
 
   .slots-grid-admin{
     display:grid; grid-template-columns:repeat(3, 1fr); gap:10px;
@@ -206,6 +222,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="agenda" onclick="cambiarTab('agenda')">Agenda</div>
     <div class="tab" data-tab="servicios" onclick="cambiarTab('servicios')">Servicios</div>
+    <div class="tab" data-tab="barberos" onclick="cambiarTab('barberos')">Barberos</div>
     <div class="tab" data-tab="horarios" onclick="cambiarTab('horarios')">Bloqueos</div>
     <div class="tab" data-tab="historial" onclick="cambiarTab('historial')">Historial</div>
   </div>
@@ -237,9 +254,33 @@
     <button class="btn small danger-outline" style="width:100%; margin-top:10px;" onclick="restablecerCatalogo()">Restablecer catálogo con servicios reales</button>
   </div>
 
+  <!-- BARBEROS -->
+  <div class="view" id="view-barberos">
+    <div id="barberos-lista"><div class="loading">Cargando barberos…</div></div>
+    <div class="new-servicio-form">
+      <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Agregar barbero</p>
+      <input type="text" id="nb-nombre" placeholder="Nombre del barbero">
+      <p style="margin:6px 0; font-size:12px; color:var(--muted);">Días de trabajo</p>
+      <div class="dias-checks" id="nb-dias">
+        <label><input type="checkbox" value="1" checked> Lun</label>
+        <label><input type="checkbox" value="2" checked> Mar</label>
+        <label><input type="checkbox" value="3" checked> Mié</label>
+        <label><input type="checkbox" value="4" checked> Jue</label>
+        <label><input type="checkbox" value="5" checked> Vie</label>
+        <label><input type="checkbox" value="6" checked> Sáb</label>
+        <label><input type="checkbox" value="0"> Dom</label>
+      </div>
+      <input type="time" id="nb-apertura" value="10:00" style="margin-top:10px;">
+      <input type="time" id="nb-cierre" value="21:00">
+      <button class="btn small" style="width:100%;" onclick="agregarBarbero()">Guardar barbero</button>
+    </div>
+  </div>
+
   <!-- BLOQUEOS DE HORARIO -->
   <div class="view" id="view-horarios">
     <div class="new-servicio-form" style="margin-top:0;">
+      <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Barbero</p>
+      <select id="bl-barbero" style="width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:11px; color:var(--text); font-size:14px; margin-bottom:8px; font-family:inherit;"></select>
       <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Elige el día</p>
       <input type="date" id="bl-fecha">
       <button class="btn small" id="btn-dia-completo" style="width:100%; margin-top:4px;" onclick="toggleDiaCompleto()">Cerrar todo el día</button>
@@ -277,8 +318,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+const BARBERO_PARAM = new URLSearchParams(location.search).get("barbero");
+
 cargarAgenda();
 cargarServicios();
+cargarBarberos();
+
+if (BARBERO_PARAM){
+  document.querySelector('.tab[data-tab="servicios"]').style.display = "none";
+  document.querySelector('.tab[data-tab="barberos"]').style.display = "none";
+  get(ref(db, "barberos/" + BARBERO_PARAM)).then(snap => {
+    if (snap.exists()) document.querySelector("header .sub").textContent = "Panel de " + snap.val().nombre;
+  });
+}
 
 // ---------- ALERTA EN TIEMPO REAL DE CANCELACIONES ----------
 if ("Notification" in window && Notification.permission === "default"){
@@ -314,6 +366,7 @@ onValue(ref(db, "citas"), (snap) => {
 
   const actual = aplanarCitas(data);
   Object.entries(actual).forEach(([key, c]) => {
+    if (BARBERO_PARAM && c.barberoId !== BARBERO_PARAM) return;
     const anterior = estadoConocido[key];
     if (anterior && anterior.estado !== "cancelada" && c.estado === "cancelada"){
       sonidoAlerta();
@@ -340,7 +393,7 @@ function verificarAvisoManana(data){
   if (minutosActuales < 540 || minutosActuales >= 780) return; // solo entre 09:00 y 13:00
   if (localStorage.getItem("avisoManana_" + hoyIso)) return;
 
-  const citasHoy = data[hoyIso] ? Object.values(data[hoyIso]).filter(c => c.estado !== "cancelada") : [];
+  const citasHoy = data[hoyIso] ? Object.values(data[hoyIso]).filter(c => c.estado !== "cancelada" && (!BARBERO_PARAM || c.barberoId === BARBERO_PARAM)) : [];
   if (citasHoy.length === 0) return;
 
   localStorage.setItem("avisoManana_" + hoyIso, "1");
@@ -369,6 +422,7 @@ window.cambiarTab = function(tab){
   document.getElementById("view-" + tab).classList.add("active");
   if (tab === "historial") cargarHistorial();
   if (tab === "horarios") renderSlotsBloqueo(document.getElementById("bl-fecha").value);
+  if (tab === "barberos") cargarBarberos();
 };
 
 function formatoMoneda(n){ return "$" + Number(n).toLocaleString("es-CL"); }
@@ -409,6 +463,7 @@ async function cargarAgenda(){
     const citas = todasFechas[fecha];
     const idsOrdenados = Object.keys(citas)
       .filter(id => citas[id].estado !== "completada" && citas[id].estado !== "cancelada")
+      .filter(id => !BARBERO_PARAM || citas[id].barberoId === BARBERO_PARAM)
       .sort((a,b) => citas[a].hora.localeCompare(citas[b].hora));
     if (idsOrdenados.length === 0) return;
 
@@ -426,7 +481,7 @@ async function cargarAgenda(){
           <div class="cita-hora">${c.hora}</div>
           <div class="cita-info">
             <p class="cita-nombre">${c.nombre}</p>
-            <p class="cita-servicio">${c.servicioNombre} · ${formatoMoneda(c.precio)}</p>
+            <p class="cita-servicio">${c.servicioNombre} · ${c.barberoNombre || "—"} · ${formatoMoneda(c.precio)}</p>
             <p class="cita-tel">${c.telefono}</p>
           </div>
           <span class="badge ${c.estado}">${c.estado}</span>
@@ -474,6 +529,7 @@ window.filtrarHistorial = function(){
     const citas = historialDatos[fecha];
     const idsFiltrados = Object.keys(citas)
       .filter(id => citas[id].estado === "completada" || citas[id].estado === "cancelada")
+      .filter(id => !BARBERO_PARAM || citas[id].barberoId === BARBERO_PARAM)
       .filter(id => {
         if (!termino) return true;
         const c = citas[id];
@@ -496,7 +552,7 @@ window.filtrarHistorial = function(){
           <div class="cita-hora">${c.hora}</div>
           <div class="cita-info">
             <p class="cita-nombre">${c.nombre}</p>
-            <p class="cita-servicio">${c.servicioNombre} · ${formatoMoneda(c.precio)}</p>
+            <p class="cita-servicio">${c.servicioNombre} · ${c.barberoNombre || "—"} · ${formatoMoneda(c.precio)}</p>
             <p class="cita-tel">${c.telefono}</p>
           </div>
           <span class="badge ${c.estado}">${c.estado}</span>
@@ -547,6 +603,7 @@ function actualizarStats(todasFechas){
   Object.keys(todasFechas).forEach(fecha => {
     Object.values(todasFechas[fecha]).forEach(c => {
       if (c.estado === "cancelada") return;
+      if (BARBERO_PARAM && c.barberoId !== BARBERO_PARAM) return;
       if (fecha >= hoyIso && fecha < fechaLimite){
         if (fecha === hoyIso) hoy++;
         semana++;
@@ -676,6 +733,115 @@ window.restablecerCatalogo = async function(){
   alert("Catálogo actualizado.");
 };
 
+// ---------- BARBEROS ----------
+const DIAS_ADMIN = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+
+function diasTextoAdmin(dias){
+  if (!dias || dias.length === 0) return "Sin días asignados";
+  if (dias.length === 7) return "Todos los días";
+  return dias.slice().sort().map(d => DIAS_ADMIN[d]).join(", ");
+}
+
+async function cargarBarberos(){
+  const cont = document.getElementById("barberos-lista");
+  const snap = await get(ref(db, "barberos"));
+  if (!snap.exists()){
+    cont.innerHTML = '<div class="empty-note">No hay barberos cargados aún.</div>';
+    return;
+  }
+  const barberos = snap.val();
+  cont.innerHTML = "";
+  Object.entries(barberos).forEach(([id, b]) => {
+    const diasSeleccionados = b.dias || [];
+    const checksHtml = [1,2,3,4,5,6,0].map(d => `
+      <label><input type="checkbox" id="eb-dia-${id}-${d}" value="${d}" ${diasSeleccionados.includes(d) ? "checked" : ""}> ${DIAS_ADMIN[d]}</label>
+    `).join("");
+
+    const row = document.createElement("div");
+    row.className = "barbero-admin-row" + (b.activo === false ? " inactivo" : "");
+    row.innerHTML = `
+      <div class="servicio-top">
+        <div>
+          <div class="nombre">${b.nombre}</div>
+          <div class="meta">${diasTextoAdmin(b.dias)} · ${b.apertura}–${b.cierre}</div>
+        </div>
+        <div class="acciones">
+          <button class="btn small ghost" onclick="copiarEnlaceBarbero('${id}')">Copiar su panel</button>
+          <button class="btn small ghost" onclick="toggleEdicionBarbero('${id}')">Editar</button>
+          <button class="btn small ghost" onclick="toggleBarbero('${id}', ${b.activo === false})">${b.activo === false ? "Activar" : "Desactivar"}</button>
+        </div>
+      </div>
+      <div class="servicio-edit" id="edit-barbero-${id}" style="display:none;">
+        <input type="text" id="eb-nombre-${id}" value="${b.nombre}" placeholder="Nombre">
+        <div class="dias-checks">${checksHtml}</div>
+        <input type="time" id="eb-apertura-${id}" value="${b.apertura}" style="margin-top:10px;">
+        <input type="time" id="eb-cierre-${id}" value="${b.cierre}">
+        <div class="servicio-edit-actions">
+          <button class="btn small" onclick="guardarEdicionBarbero('${id}')">Guardar cambios</button>
+          <button class="btn small danger-outline" onclick="eliminarBarbero('${id}', '${b.nombre.replace(/'/g,"")}')">Eliminar</button>
+        </div>
+      </div>
+    `;
+    cont.appendChild(row);
+  });
+}
+
+window.copiarEnlaceBarbero = function(id){
+  const url = `${location.origin}${location.pathname}?barbero=${id}`;
+  if (navigator.clipboard){
+    navigator.clipboard.writeText(url).then(() => alert("Enlace copiado:\n" + url));
+  } else {
+    prompt("Copia este enlace:", url);
+  }
+};
+
+window.toggleEdicionBarbero = function(id){
+  const el = document.getElementById("edit-barbero-" + id);
+  el.style.display = el.style.display === "none" ? "block" : "none";
+};
+
+window.guardarEdicionBarbero = async function(id){
+  const nombre = document.getElementById(`eb-nombre-${id}`).value.trim();
+  const apertura = document.getElementById(`eb-apertura-${id}`).value;
+  const cierre = document.getElementById(`eb-cierre-${id}`).value;
+  const dias = [0,1,2,3,4,5,6].filter(d => {
+    const chk = document.getElementById(`eb-dia-${id}-${d}`);
+    return chk && chk.checked;
+  });
+  if (!nombre || !apertura || !cierre || dias.length === 0){
+    alert("Completa nombre, horario y al menos un día.");
+    return;
+  }
+  await update(ref(db, "barberos/" + id), { nombre, apertura, cierre, dias });
+  cargarBarberos();
+};
+
+window.toggleBarbero = async function(id, activar){
+  await update(ref(db, "barberos/" + id), { activo: activar });
+  cargarBarberos();
+};
+
+window.eliminarBarbero = async function(id, nombre){
+  if (!confirm(`¿Eliminar a "${nombre}"? Esta acción no se puede deshacer.`)) return;
+  await remove(ref(db, "barberos/" + id));
+  cargarBarberos();
+};
+
+window.agregarBarbero = async function(){
+  const nombre = document.getElementById("nb-nombre").value.trim();
+  const apertura = document.getElementById("nb-apertura").value;
+  const cierre = document.getElementById("nb-cierre").value;
+  const dias = Array.from(document.querySelectorAll("#nb-dias input[type=checkbox]:checked")).map(c => Number(c.value));
+  if (!nombre || !apertura || !cierre || dias.length === 0){
+    alert("Completa nombre, horario y al menos un día.");
+    return;
+  }
+  const nuevaRef = push(ref(db, "barberos"));
+  await set(nuevaRef, { nombre, apertura, cierre, dias, activo: true });
+  document.getElementById("nb-nombre").value = "";
+  cargarBarberos();
+};
+
 // ---------- BLOQUEOS DE HORARIO ----------
 const HORARIO_POR_DIA = {
   0: { apertura: "10:00", cierre: "17:00" }, // domingo
@@ -701,8 +867,27 @@ function minutosAHHMMAdmin(min){
 const inputFecha = document.getElementById("bl-fecha");
 inputFecha.value = new Date().toISOString().slice(0,10);
 inputFecha.addEventListener("change", () => renderSlotsBloqueo(inputFecha.value));
-renderSlotsBloqueo(inputFecha.value);
-renderRecurrentesGrid();
+
+const selectBarberoBloqueo = document.getElementById("bl-barbero");
+async function inicializarSelectorBarbero(){
+  const snap = await get(ref(db, "barberos"));
+  const listaBarberos = snap.exists() ? snap.val() : {};
+  selectBarberoBloqueo.innerHTML = Object.entries(listaBarberos)
+    .filter(([id, b]) => b.activo !== false)
+    .map(([id, b]) => `<option value="${id}">${b.nombre}</option>`).join("");
+  if (BARBERO_PARAM){
+    selectBarberoBloqueo.value = BARBERO_PARAM;
+    selectBarberoBloqueo.disabled = true;
+    selectBarberoBloqueo.parentElement.querySelector("p").style.display = "none";
+  }
+  selectBarberoBloqueo.addEventListener("change", () => {
+    renderSlotsBloqueo(inputFecha.value);
+    renderRecurrentesGrid();
+  });
+  renderSlotsBloqueo(inputFecha.value);
+  renderRecurrentesGrid();
+}
+inicializarSelectorBarbero();
 
 window.toggleDiaCompleto = async function(){
   const fecha = document.getElementById("bl-fecha").value;
@@ -710,7 +895,7 @@ window.toggleDiaCompleto = async function(){
   if (snap.exists()){
     await remove(ref(db, "diasCerrados/" + fecha));
   } else {
-    if (!confirm(`¿Cerrar completamente el ${fechaLegible(fecha)}? Nadie podrá reservar ese día.`)) return;
+    if (!confirm(`¿Cerrar completamente el ${fechaLegible(fecha)}? Nadie podrá reservar ese día (aplica a todos los barberos).`)) return;
     await set(ref(db, "diasCerrados/" + fecha), true);
   }
   renderSlotsBloqueo(fecha);
@@ -719,6 +904,8 @@ window.toggleDiaCompleto = async function(){
 async function renderSlotsBloqueo(fecha){
   const cont = document.getElementById("slots-grid-admin");
   const btnDia = document.getElementById("btn-dia-completo");
+  const barberoSel = selectBarberoBloqueo.value;
+  if (!barberoSel) return;
   cont.innerHTML = '<div class="loading">Cargando horarios…</div>';
 
   const snapCerrado = await get(ref(db, "diasCerrados/" + fecha));
@@ -737,9 +924,9 @@ async function renderSlotsBloqueo(fecha){
   }
 
   const [snapBloqueos, snapCitas, snapRecurrentes] = await Promise.all([
-    get(ref(db, "bloqueos/" + fecha)),
+    get(ref(db, `bloqueos/${fecha}/${barberoSel}`)),
     get(ref(db, "citas/" + fecha)),
-    get(ref(db, "bloqueosRecurrentes"))
+    get(ref(db, "bloqueosRecurrentes/" + barberoSel))
   ]);
   const bloqueos = snapBloqueos.exists() ? snapBloqueos.val() : {};
   const citas = snapCitas.exists() ? snapCitas.val() : {};
@@ -749,7 +936,7 @@ async function renderSlotsBloqueo(fecha){
   Object.entries(bloqueos).forEach(([id, b]) => { bloqueadoPorHora[b.horaInicio] = id; });
 
   const ocupadoPorHora = new Set(
-    Object.values(citas).filter(c => c.estado !== "cancelada").map(c => c.hora)
+    Object.values(citas).filter(c => c.estado !== "cancelada" && c.barberoId === barberoSel).map(c => c.hora)
   );
 
   const rangosRecurrentes = Object.values(recurrentes).map(r => ({
@@ -769,18 +956,18 @@ async function renderSlotsBloqueo(fecha){
     btn.className = "slot-admin" + (estaBloqueado ? " bloqueado" : "") + (estaOcupado ? " ocupado" : "") + (esRecurrente ? " recurrente" : "");
     btn.textContent = hora;
     if (!estaOcupado && !esRecurrente){
-      btn.onclick = () => toggleBloqueo(fecha, hora, bloqueadoPorHora[hora]);
+      btn.onclick = () => toggleBloqueo(fecha, barberoSel, hora, bloqueadoPorHora[hora]);
     }
     cont.appendChild(btn);
   }
 }
 
-async function toggleBloqueo(fecha, hora, idExistente){
+async function toggleBloqueo(fecha, barberoSel, hora, idExistente){
   if (idExistente){
-    await remove(ref(db, `bloqueos/${fecha}/${idExistente}`));
+    await remove(ref(db, `bloqueos/${fecha}/${barberoSel}/${idExistente}`));
   } else {
     const finMin = minutosDesdeAdmin(hora) + INTERVALO_MIN_ADMIN;
-    const nuevaRef = push(ref(db, "bloqueos/" + fecha));
+    const nuevaRef = push(ref(db, `bloqueos/${fecha}/${barberoSel}`));
     await set(nuevaRef, { horaInicio: hora, horaFin: minutosAHHMMAdmin(finMin), motivo: "Bloqueado" });
   }
   renderSlotsBloqueo(fecha);
@@ -788,8 +975,10 @@ async function toggleBloqueo(fecha, hora, idExistente){
 
 async function renderRecurrentesGrid(){
   const cont = document.getElementById("recurrentes-grid");
+  const barberoSel = selectBarberoBloqueo.value;
+  if (!barberoSel) return;
   cont.innerHTML = '<div class="loading">Cargando…</div>';
-  const snap = await get(ref(db, "bloqueosRecurrentes"));
+  const snap = await get(ref(db, "bloqueosRecurrentes/" + barberoSel));
   const recurrentes = snap.exists() ? snap.val() : {};
 
   const bloqueadoPorHora = {};
@@ -805,17 +994,17 @@ async function renderRecurrentesGrid(){
     const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
     btn.className = "slot-admin" + (estaBloqueado ? " bloqueado" : "");
     btn.textContent = hora;
-    btn.onclick = () => toggleRecurrente(hora, bloqueadoPorHora[hora]);
+    btn.onclick = () => toggleRecurrente(barberoSel, hora, bloqueadoPorHora[hora]);
     cont.appendChild(btn);
   }
 }
 
-async function toggleRecurrente(hora, idExistente){
+async function toggleRecurrente(barberoSel, hora, idExistente){
   if (idExistente){
-    await remove(ref(db, "bloqueosRecurrentes/" + idExistente));
+    await remove(ref(db, `bloqueosRecurrentes/${barberoSel}/${idExistente}`));
   } else {
     const finMin = minutosDesdeAdmin(hora) + INTERVALO_MIN_ADMIN;
-    const nuevaRef = push(ref(db, "bloqueosRecurrentes"));
+    const nuevaRef = push(ref(db, "bloqueosRecurrentes/" + barberoSel));
     await set(nuevaRef, { horaInicio: hora, horaFin: minutosAHHMMAdmin(finMin), motivo: "Recurrente" });
   }
   renderRecurrentesGrid();
