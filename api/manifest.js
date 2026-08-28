@@ -23,5 +23,6 @@ module.exports = (req, res) => {
   };
 
   res.setHeader("Content-Type", "application/manifest+json");
+ res.setHeader("Cache-Control", "no-store");
   res.status(200).send(JSON.stringify(manifest));
 };
