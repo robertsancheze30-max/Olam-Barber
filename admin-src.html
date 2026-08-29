@@ -223,6 +223,8 @@
 </head>
 <body>
 
+<button onclick="enablePushNotifications('admin')" style="padding:10px 16px;border-radius:8px;background:#c9a227;color:#000;border:none;font-weight:bold;">🔔 Activar notificaciones</button>
+
 <header>
   <img src="logo.jpg" alt="Olam Barber" class="logo-img">
   <div class="sub">Panel administrativo</div>
@@ -1137,5 +1139,7 @@ async function toggleRecurrente(barberoSel, hora, idExistente){
   renderSlotsBloqueo(document.getElementById("bl-fecha").value);
 }
 </script>
+
+<script src="push-client.js"></script>
 </body>
 </html>
