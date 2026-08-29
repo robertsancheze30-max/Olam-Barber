@@ -21,19 +21,25 @@ module.exports = async (req, res) => {
 
     const payload = JSON.stringify({ title, body, url: url || "/admin-src.html" });
 
+    const resultados = [];
+
     for (const key of targets) {
       const subUrl = `https://olam-barber-default-rtdb.firebaseio.com/pushSubscriptions/${encodeURIComponent(key)}.json`;
       const subRes = await fetch(subUrl);
       const subscription = await subRes.json();
-      if (!subscription || !subscription.endpoint) continue;
+      if (!subscription || !subscription.endpoint) {
+        resultados.push({ key, status: "sin_suscripcion" });
+        continue;
+      }
       try {
         await webpush.sendNotification(subscription, payload);
+        resultados.push({ key, status: "enviado" });
       } catch (e) {
-        // Suscripción vencida o inválida: la ignoramos sin romper el resto.
+        resultados.push({ key, status: "error", detalle: e.message, statusCode: e.statusCode || null });
       }
     }
 
-    res.status(200).json({ ok: true });
+    res.status(200).json({ ok: true, resultados });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
