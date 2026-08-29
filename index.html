@@ -844,6 +844,22 @@ window.confirmarReserva = async function(){
     const nuevaRef = push(ref(db, "citas/" + estado.fecha));
     await set(nuevaRef, nuevaCita);
 
+    // Avisar al barbero con una notificación push (aunque no tenga la app abierta)
+    try {
+      await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          barberoId: estado.barberoId,
+          title: reprogramando ? "Cita reprogramada 🔄" : "Nueva cita 🎉",
+          body: `${nombre} ${reprogramando ? "reprogramó" : "reservó"} ${s.nombre} el ${fechaLegible(estado.fecha)} a las ${estado.hora}`,
+          url: "/admin-src.html"
+        })
+      });
+    } catch (notifErr){
+      console.error("No se pudo enviar la notificación push:", notifErr);
+    }
+
     if (reprogramando){
       await remove(ref(db, `citas/${reprogramando.fechaOriginal}/${reprogramando.idOriginal}`));
     }
