@@ -17,8 +17,9 @@ module.exports = async (req, res) => {
     const targets = new Set();
     targets.add(barberoId || "master");
     targets.add("master");
+    targets.add("admin");
 
-    const payload = JSON.stringify({ title, body, url: url || "/admin.html" });
+    const payload = JSON.stringify({ title, body, url: url || "/admin-src.html" });
 
     for (const key of targets) {
       const subUrl = `https://olam-barber-default-rtdb.firebaseio.com/pushSubscriptions/${encodeURIComponent(key)}.json`;
