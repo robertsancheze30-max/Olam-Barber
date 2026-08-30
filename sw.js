@@ -9,8 +9,8 @@ self.addEventListener('push', function (event) {
   const title = data.title || 'Olam Barber';
   const options = {
     body: data.body || 'Tienes una nueva notificación',
-    icon: data.icon || '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: data.icon || '/icon.jpg',
+    badge: '/icon.jpg',
     data: { url: data.url || '/' }
   };
 

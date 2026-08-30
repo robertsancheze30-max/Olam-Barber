@@ -843,7 +843,29 @@ window.cancelarMiCita = async function(fecha, id, btn){
   if (!confirm("¿Estás seguro de que quieres cancelar tu cita?")) return;
   btn.disabled = true;
   btn.textContent = "Cancelando…";
+
+  const snapCita = await get(ref(db, `citas/${fecha}/${id}`));
+  const cita = snapCita.exists() ? snapCita.val() : null;
+
   await update(ref(db, `citas/${fecha}/${id}`), { estado: "cancelada" });
+
+  if (cita){
+    try {
+      await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          barberoId: cita.barberoId,
+          title: "Cita cancelada ❌",
+          body: `${cita.nombre} canceló su cita del ${fechaLegible(fecha)} a las ${cita.hora}`,
+          url: "/admin-src.html"
+        })
+      });
+    } catch (notifErr){
+      console.error("No se pudo enviar la notificación push de cancelación:", notifErr);
+    }
+  }
+
   buscarMisCitas();
 };
 
