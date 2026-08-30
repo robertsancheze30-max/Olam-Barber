@@ -574,6 +574,32 @@ function isoDeHoyMasDias(n){
   return fechaLocalISO(d);
 }
 
+// Marca automáticamente como "completada" cualquier cita pendiente/confirmada
+// cuya hora + duración ya haya pasado, para no depender de que el barbero
+// la marque manualmente.
+async function autoCompletarCitasVencidas(todasFechas){
+  const hoyIso = fechaLocalISO(new Date());
+  const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+
+  for (const fecha of Object.keys(todasFechas)){
+    const citas = todasFechas[fecha];
+    for (const id of Object.keys(citas)){
+      const c = citas[id];
+      if (c.estado === "completada" || c.estado === "cancelada") continue;
+
+      const yaPaso = fecha < hoyIso || (fecha === hoyIso && (minutosDesdeAdmin(c.hora) + (c.duracion || 0)) <= ahoraMin);
+      if (!yaPaso) continue;
+
+      try {
+        await update(ref(db, `citas/${fecha}/${id}`), { estado: "completada" });
+        c.estado = "completada"; // reflejar el cambio localmente sin recargar
+      } catch (e) {
+        console.error("No se pudo auto-completar la cita", fecha, id, e);
+      }
+    }
+  }
+}
+
 async function cargarAgenda(){
   const cont = document.getElementById("agenda-lista");
   const snap = await get(ref(db, "citas"));
@@ -583,6 +609,7 @@ async function cargarAgenda(){
     return;
   }
   const todasFechas = snap.val();
+  await autoCompletarCitasVencidas(todasFechas);
   actualizarStats(todasFechas);
 
   const hoyIso = isoDeHoyMasDias(0);
