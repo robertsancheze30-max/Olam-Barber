@@ -550,14 +550,15 @@ function seleccionarServicio(id){
   setTimeout(() => window.irPaso(2), 150);
 }
 
-// Fotos de los barberos, según su nombre exacto en Firebase
+// Fotos de los barberos, según su nombre (sin importar mayúsculas/minúsculas)
 const FOTOS_BARBEROS = {
-  "Derwin Muñoz": "derwin.jpg",
-  "Ignacio Concha": "ignacio.jpg"
+  "derwin muñoz": "derwin.jpg",
+  "ignacio concha": "ignacio.jpg"
 };
 
 function avatarBarberoHTML(nombre){
-  const foto = FOTOS_BARBEROS[nombre ? nombre.trim() : ""];
+  const clave = (nombre || "").trim().toLowerCase();
+  const foto = FOTOS_BARBEROS[clave];
   if (foto){
     return `<img src="${foto}" alt="${nombre}">`;
   }
