@@ -766,7 +766,7 @@ function actualizarStats(todasFechas){
 window.recordarWhatsApp = function(telefono, nombre, servicio, fecha, hora){
   let numero = telefono.replace(/\D/g, "");
   if (numero.length === 9 && numero.startsWith("9")) numero = "56" + numero;
-  const mensaje = `Hola ${nombre}! 👋 Te recordamos tu cita en *Olam Barber* el ${fechaLegible(fecha)} a las ${hora} para *${servicio}*. ¡Te esperamos! ✂️`;
+  const mensaje = `Hola ${nombre}! 👋 Te recordamos tu cita en *Olam Barber* el ${fechaLegible(fecha)} a las ${hora} para *${servicio}*. ¡Te esperamos! ✂️ Recuerda ser puntual con tu reserva y poder estar por lo menos 10 minutos antes de la hora. Gracias! 🙏🏼`;
   window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, "_blank");
 };
 
