@@ -513,7 +513,7 @@ function actualizarBadge(citasPlanas){
 
 function verificarAvisoManana(data){
   const ahora = new Date();
-  const hoyIso = ahora.toISOString().slice(0,10);
+  const hoyIso = fechaLocalISO(ahora);
   const minutosActuales = ahora.getHours()*60 + ahora.getMinutes();
   if (minutosActuales < 540 || minutosActuales >= 780) return; // solo entre 09:00 y 13:00
   if (localStorage.getItem("avisoManana_" + hoyIso)) return;
@@ -553,6 +553,14 @@ window.cambiarTab = function(tab){
 };
 
 function formatoMoneda(n){ return "$" + Number(n).toLocaleString("es-CL"); }
+
+// Fecha local (evita el salto de día que produce toISOString() al usar UTC)
+function fechaLocalISO(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dia}`;
+}
 const DIAS = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
 const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
@@ -563,7 +571,7 @@ function fechaLegible(iso){
 function isoDeHoyMasDias(n){
   const d = new Date();
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0,10);
+  return fechaLocalISO(d);
 }
 
 async function cargarAgenda(){
@@ -996,7 +1004,7 @@ function minutosAHHMMAdmin(min){
 }
 
 const inputFecha = document.getElementById("bl-fecha");
-inputFecha.value = new Date().toISOString().slice(0,10);
+inputFecha.value = fechaLocalISO(new Date());
 inputFecha.addEventListener("change", () => renderSlotsBloqueo(inputFecha.value));
 
 const selectBarberoBloqueo = document.getElementById("bl-barbero");

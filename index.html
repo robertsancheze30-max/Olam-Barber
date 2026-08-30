@@ -469,6 +469,14 @@ function formatoMoneda(n){
   return "$" + Number(n).toLocaleString("es-CL");
 }
 
+// Fecha local (evita el salto de día que produce toISOString() al usar UTC)
+function fechaLocalISO(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dia}`;
+}
+
 async function cargarServicios(){
   const [snap, snapBarberos, snapCerrados] = await Promise.all([
     get(ref(db, "servicios")),
@@ -599,7 +607,7 @@ function renderFechas(){
     const diaSemana = d.getDay();
     if (!barbero.dias.includes(diaSemana)) continue;
     if (!HORARIO_TIENDA[diaSemana]) continue;
-    const iso = d.toISOString().slice(0,10);
+    const iso = fechaLocalISO(d);
     if (diasCerrados[iso]) continue;
     if (!primerDiaValido) primerDiaValido = iso;
     const chip = document.createElement("div");
@@ -668,7 +676,7 @@ function renderSlots(){
 
   const bloqueosManuales = bloqueos.concat(recurrentes);
 
-  const esHoy = estado.fecha === new Date().toISOString().slice(0,10);
+  const esHoy = estado.fecha === fechaLocalISO(new Date());
   const ahoraMin = new Date().getHours()*60 + new Date().getMinutes();
 
   let huboSlots = false;
@@ -763,7 +771,7 @@ window.buscarMisCitas = async function(){
   }
 
   const todasFechas = snap.val();
-  const hoyIso = new Date().toISOString().slice(0,10);
+  const hoyIso = fechaLocalISO(new Date());
   const resultados = [];
   Object.entries(todasFechas).forEach(([fecha, citas]) => {
     if (fecha < hoyIso) return;
