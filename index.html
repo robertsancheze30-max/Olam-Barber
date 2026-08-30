@@ -157,7 +157,7 @@
   .service-divider{width:1px; align-self:stretch; background:var(--border); margin:2px 0;}
 
   .barbero-card{
-    display:flex; align-items:center; gap:14px;
+    display:block;
     cursor:pointer;
     border-left:2px solid var(--gold);
     border-bottom:2px solid var(--gold);
@@ -170,15 +170,19 @@
     background:linear-gradient(160deg, var(--panel-2) 0%, #1a1409 100%);
     box-shadow:-8px 8px 22px -8px rgba(212,175,55,0.7);
   }
-  .barbero-avatar{
-    flex:0 0 auto; width:46px; height:46px; border-radius:50%;
-    border:1.5px solid var(--gold);
-    display:flex; align-items:center; justify-content:center;
-    color:var(--gold-bright);
-    overflow:hidden;
+  .barbero-header{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
+  .barbero-foto-full{
+    width:100%; aspect-ratio:1/1; object-fit:cover;
+    border-radius:12px; border:1.5px solid var(--gold);
+    display:block;
   }
-  .barbero-avatar svg{width:24px; height:24px;}
-  .barbero-avatar img{width:100%; height:100%; object-fit:cover; display:block;}
+  .barbero-foto-placeholder{
+    width:100%; aspect-ratio:1/1;
+    border-radius:12px; border:1.5px solid var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--gold-bright); background:var(--panel-2);
+  }
+  .barbero-foto-placeholder svg{width:64px; height:64px;}
   .barbero-nombre{font-weight:700; font-size:16px;}
   .barbero-dias{color:var(--muted); font-size:12.5px; margin-top:2px;}
   .service-meta{color:var(--muted); font-size:13px;}
@@ -556,17 +560,19 @@ const FOTOS_BARBEROS = {
   "ignacio concha": "ignacio.jpg"
 };
 
-function avatarBarberoHTML(nombre){
+function fotoBarberoHTML(nombre){
   const clave = (nombre || "").trim().toLowerCase();
   const foto = FOTOS_BARBEROS[clave];
   if (foto){
-    return `<img src="${foto}" alt="${nombre}">`;
+    return `<img class="barbero-foto-full" src="${foto}" alt="${nombre}">`;
   }
   return `
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/>
-      <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-    </svg>
+    <div class="barbero-foto-placeholder">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </div>
   `;
 }
 
@@ -589,13 +595,13 @@ function renderBarberos(){
     div.className = "card barbero-card";
     div.dataset.id = id;
     div.innerHTML = `
-      <div class="barbero-avatar">
-        ${avatarBarberoHTML(b.nombre)}
+      <div class="barbero-header">
+        <div>
+          <div class="barbero-nombre">${b.nombre}</div>
+          <div class="barbero-dias">${diasTrabajoTexto(b.dias)}</div>
+        </div>
       </div>
-      <div>
-        <div class="barbero-nombre">${b.nombre}</div>
-        <div class="barbero-dias">${diasTrabajoTexto(b.dias)}</div>
-      </div>
+      ${fotoBarberoHTML(b.nombre)}
     `;
     div.onclick = () => seleccionarBarbero(id);
     cont.appendChild(div);
