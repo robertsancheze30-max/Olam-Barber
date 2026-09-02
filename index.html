@@ -367,7 +367,23 @@
     <div class="card" id="resumen-card"></div>
     <input type="text" id="input-nombre" placeholder="Tu nombre completo" maxlength="50">
     <input type="tel" id="input-telefono" placeholder="Tu teléfono" maxlength="20">
-    <button class="btn" id="btn-confirmar" onclick="confirmarReserva()">Confirmar cita</button>
+
+    <div class="card" id="abono-card" style="border-left:2px solid var(--gold); border-bottom:2px solid var(--gold); box-shadow:-6px 6px 18px -10px rgba(212,175,55,0.55);">
+      <p style="margin:0 0 10px; font-weight:700; font-size:14px; color:var(--gold-bright);">Abono para reservar — $2.000</p>
+      <p style="margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.5;">
+        Para asegurar tu hora, transfiere $2.000 a esta cuenta. Sin el abono no podemos generar la cita.
+      </p>
+      <div class="summary-row"><span class="label">Banco</span><span class="value">Banco Estado</span></div>
+      <div class="summary-row"><span class="label">Cuenta Vista</span><span class="value">26587458</span></div>
+      <div class="summary-row"><span class="label">Nombre</span><span class="value">Derwin Muñoz</span></div>
+      <div class="summary-row"><span class="label">RUT</span><span class="value">26587458-4</span></div>
+      <label style="display:flex; align-items:flex-start; gap:10px; margin-top:14px; cursor:pointer;">
+        <input type="checkbox" id="check-abono" style="width:18px; height:18px; margin-top:2px; accent-color:var(--gold); flex-shrink:0;" onchange="document.getElementById('btn-confirmar').disabled = !this.checked;">
+        <span style="font-size:13.5px; color:var(--text);">Ya transferí el abono de $2.000</span>
+      </label>
+    </div>
+
+    <button class="btn" id="btn-confirmar" onclick="confirmarReserva()" disabled>Confirmar cita</button>
   </section>
 
   <!-- PASO 5: CONFIRMACION -->
@@ -753,6 +769,12 @@ window.irPaso = function(n){
     if (reprogramando){
       document.getElementById("input-nombre").value = reprogramando.nombre;
       document.getElementById("input-telefono").value = reprogramando.telefono;
+      document.getElementById("abono-card").style.display = "none";
+      document.getElementById("btn-confirmar").disabled = false;
+    } else {
+      document.getElementById("abono-card").style.display = "block";
+      document.getElementById("check-abono").checked = false;
+      document.getElementById("btn-confirmar").disabled = true;
     }
   }
   irPasoInterno(n);
@@ -876,6 +898,10 @@ window.confirmarReserva = async function(){
     alert("Por favor completa tu nombre y teléfono.");
     return;
   }
+  if (!reprogramando && !document.getElementById("check-abono").checked){
+    alert("Debes confirmar que transferiste el abono de $2.000 para poder reservar tu cita.");
+    return;
+  }
   const btn = document.getElementById("btn-confirmar");
   btn.disabled = true;
   btn.textContent = reprogramando ? "Guardando…" : "Reservando…";
@@ -891,6 +917,7 @@ window.confirmarReserva = async function(){
     hora: estado.hora,
     duracion: s.duracion,
     precio: s.precio,
+    abonoPagado: reprogramando ? "no aplica (reprogramación)" : "cliente confirmó transferencia de $2.000",
     estado: "pendiente",
     creada: Date.now()
   };
