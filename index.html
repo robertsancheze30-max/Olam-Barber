@@ -432,6 +432,9 @@ const HORARIO_POR_DIA = {
 };
 const INTERVALO_MIN = 45; // ventanas de 45 min
 
+// Bloque extra al final del día: empieza antes del cierre, pero puede terminar después
+const BLOQUE_EXTRA = { 0: "16:30", 1: "20:30", 2: "20:30", 3: "20:30", 4: "20:30", 5: "20:30", 6: "20:30" };
+
 // Horario real de la barbería (techo que ningún barbero puede superar)
 const HORARIO_TIENDA = {
   0: { apertura: "10:00", cierre: "17:00" }, // domingo
@@ -713,8 +716,17 @@ function renderSlots(){
   const esHoy = estado.fecha === fechaLocalISO(new Date());
   const ahoraMin = new Date().getHours()*60 + new Date().getMinutes();
 
+  const candidatos = [];
+  for (let t = inicio; t + ocupa <= fin; t += INTERVALO_MIN) candidatos.push(t);
+  const extra = BLOQUE_EXTRA[diaSemana];
+  if (extra){
+    const tExtra = minutosDesde(extra);
+    if (tExtra >= inicio && tExtra < fin && !candidatos.includes(tExtra)) candidatos.push(tExtra);
+  }
+  candidatos.sort((a,b) => a - b);
+
   let huboSlots = false;
-  for (let t = inicio; t + ocupa <= fin; t += INTERVALO_MIN){
+  for (const t of candidatos){
     const chocaConCita = ocupadosCitas.some(o => t < o.fin && (t+ocupa) > o.ini);
     const chocaConBloqueo = bloqueosManuales.some(o => t < o.fin && (t+ocupa) > o.ini);
     const yaPaso = esHoy && t <= ahoraMin;

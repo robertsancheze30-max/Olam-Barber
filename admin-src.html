@@ -1009,6 +1009,9 @@ const HORARIO_POR_DIA = {
 };
 const INTERVALO_MIN_ADMIN = 45; // ventanas de 45 min (igual que la página del cliente)
 
+// Bloque extra al final del día (igual que la página del cliente)
+const BLOQUE_EXTRA_ADMIN = { 0: "16:30", 1: "20:30", 2: "20:30", 3: "20:30", 4: "20:30", 5: "20:30", 6: "20:30" };
+
 // "Color global" ocupa 2 ventanas (sin importar la duración); los demás ocupan 1.
 function ventanasDeAdmin(nombreServicio){
   return (nombreServicio || "").toLowerCase().includes("color global") ? 2 : 1;
@@ -1109,8 +1112,17 @@ async function renderSlotsBloqueo(fecha){
   const inicio = minutosDesdeAdmin(horarioHoy.apertura);
   const fin = minutosDesdeAdmin(horarioHoy.cierre);
 
+  const candidatos = [];
+  for (let t = inicio; t + INTERVALO_MIN_ADMIN <= fin; t += INTERVALO_MIN_ADMIN) candidatos.push(t);
+  const extra = BLOQUE_EXTRA_ADMIN[diaSemana];
+  if (extra){
+    const tExtra = minutosDesdeAdmin(extra);
+    if (tExtra >= inicio && tExtra < fin && !candidatos.includes(tExtra)) candidatos.push(tExtra);
+  }
+  candidatos.sort((a,b) => a - b);
+
   cont.innerHTML = "";
-  for (let t = inicio; t + INTERVALO_MIN_ADMIN <= fin; t += INTERVALO_MIN_ADMIN){
+  for (const t of candidatos){
     const hora = minutosAHHMMAdmin(t);
     const btn = document.createElement("div");
     const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
@@ -1150,8 +1162,14 @@ async function renderRecurrentesGrid(){
   const inicio = minutosDesdeAdmin("10:00");
   const fin = minutosDesdeAdmin("21:00");
 
+  const candidatos = [];
+  for (let t = inicio; t + INTERVALO_MIN_ADMIN <= fin; t += INTERVALO_MIN_ADMIN) candidatos.push(t);
+  const tExtra = minutosDesdeAdmin("20:30");
+  if (!candidatos.includes(tExtra)) candidatos.push(tExtra);
+  candidatos.sort((a,b) => a - b);
+
   cont.innerHTML = "";
-  for (let t = inicio; t + INTERVALO_MIN_ADMIN <= fin; t += INTERVALO_MIN_ADMIN){
+  for (const t of candidatos){
     const hora = minutosAHHMMAdmin(t);
     const btn = document.createElement("div");
     const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
