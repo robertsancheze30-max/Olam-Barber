@@ -1007,7 +1007,12 @@ const HORARIO_POR_DIA = {
   5: { apertura: "10:00", cierre: "21:00" }, // viernes
   6: { apertura: "10:00", cierre: "21:00" }  // sábado
 };
-const INTERVALO_MIN_ADMIN = 30;
+const INTERVALO_MIN_ADMIN = 45; // ventanas de 45 min (igual que la página del cliente)
+
+// "Color global" ocupa 2 ventanas (sin importar la duración); los demás ocupan 1.
+function ventanasDeAdmin(nombreServicio){
+  return (nombreServicio || "").toLowerCase().includes("color global") ? 2 : 1;
+}
 
 function minutosDesdeAdmin(hhmm){
   const [h,m] = hhmm.split(":").map(Number);
@@ -1092,7 +1097,10 @@ async function renderSlotsBloqueo(fecha){
 
   const rangosOcupados = Object.values(citas)
     .filter(c => c.estado !== "cancelada" && c.barberoId === barberoSel)
-    .map(c => ({ ini: minutosDesdeAdmin(c.hora), fin: minutosDesdeAdmin(c.hora) + INTERVALO_MIN_ADMIN }));
+    .map(c => {
+      const ini = minutosDesdeAdmin(c.hora);
+      return { ini, fin: ini + ventanasDeAdmin(c.servicioNombre) * INTERVALO_MIN_ADMIN };
+    });
 
   const rangosRecurrentes = Object.values(recurrentes).map(r => ({
     ini: minutosDesdeAdmin(r.horaInicio), fin: minutosDesdeAdmin(r.horaFin)
@@ -1102,7 +1110,7 @@ async function renderSlotsBloqueo(fecha){
   const fin = minutosDesdeAdmin(horarioHoy.cierre);
 
   cont.innerHTML = "";
-  for (let t = inicio; t < fin; t += INTERVALO_MIN_ADMIN){
+  for (let t = inicio; t + INTERVALO_MIN_ADMIN <= fin; t += INTERVALO_MIN_ADMIN){
     const hora = minutosAHHMMAdmin(t);
     const btn = document.createElement("div");
     const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
@@ -1143,7 +1151,7 @@ async function renderRecurrentesGrid(){
   const fin = minutosDesdeAdmin("21:00");
 
   cont.innerHTML = "";
-  for (let t = inicio; t < fin; t += INTERVALO_MIN_ADMIN){
+  for (let t = inicio; t + INTERVALO_MIN_ADMIN <= fin; t += INTERVALO_MIN_ADMIN){
     const hora = minutosAHHMMAdmin(t);
     const btn = document.createElement("div");
     const estaBloqueado = bloqueadoPorHora.hasOwnProperty(hora);
