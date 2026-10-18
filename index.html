@@ -430,7 +430,7 @@ const HORARIO_POR_DIA = {
   5: { apertura: "10:00", cierre: "21:00" }, // viernes
   6: { apertura: "10:00", cierre: "21:00" }  // sábado
 };
-const INTERVALO_MIN = 30; // slots cada 30 min
+const INTERVALO_MIN = 45; // ventanas de 45 min
 
 // Horario real de la barbería (techo que ningún barbero puede superar)
 const HORARIO_TIENDA = {
@@ -678,12 +678,17 @@ function minutosAHHMM(min){
   return `${h}:${m}`;
 }
 
+// Cuántas ventanas de 45 min ocupa un servicio (hasta 45 min = 1; más de 45 = 2)
+function ventanasDe(duracion){
+  return Math.max(1, Math.ceil((Number(duracion) || INTERVALO_MIN) / INTERVALO_MIN));
+}
+
 function renderSlots(){
   const grid = document.getElementById("slots-grid");
   grid.innerHTML = "";
   const servicio = servicios[estado.servicioId];
   const barbero = barberos[estado.barberoId];
-  const duracion = servicio.duracion;
+  const ocupa = ventanasDe(servicio.duracion) * INTERVALO_MIN;
   const diaSemana = new Date(estado.fecha + "T00:00:00").getDay();
   const horarioTienda = HORARIO_TIENDA[diaSemana];
   const inicio = Math.max(minutosDesde(barbero.apertura), minutosDesde(horarioTienda.apertura));
@@ -691,7 +696,10 @@ function renderSlots(){
 
   const ocupadosCitas = Object.values(citasDelDia)
     .filter(c => c.estado !== "cancelada")
-    .map(c => ({ ini: minutosDesde(c.hora), fin: minutosDesde(c.hora) + INTERVALO_MIN }));
+    .map(c => {
+      const ini = minutosDesde(c.hora);
+      return { ini, fin: ini + ventanasDe(c.duracion) * INTERVALO_MIN };
+    });
 
   const bloqueos = Object.values(bloqueosDelDia)
     .map(b => ({ ini: minutosDesde(b.horaInicio), fin: minutosDesde(b.horaFin) }));
@@ -705,9 +713,9 @@ function renderSlots(){
   const ahoraMin = new Date().getHours()*60 + new Date().getMinutes();
 
   let huboSlots = false;
-  for (let t = inicio; t + duracion <= fin; t += INTERVALO_MIN){
-    const chocaConCita = ocupadosCitas.some(o => t < o.fin && (t+INTERVALO_MIN) > o.ini);
-    const chocaConBloqueo = bloqueosManuales.some(o => t < o.fin && (t+duracion) > o.ini);
+  for (let t = inicio; t + ocupa <= fin; t += INTERVALO_MIN){
+    const chocaConCita = ocupadosCitas.some(o => t < o.fin && (t+ocupa) > o.ini);
+    const chocaConBloqueo = bloqueosManuales.some(o => t < o.fin && (t+ocupa) > o.ini);
     const yaPaso = esHoy && t <= ahoraMin;
     if (chocaConCita || chocaConBloqueo || yaPaso) continue;
     huboSlots = true;
