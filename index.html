@@ -678,9 +678,10 @@ function minutosAHHMM(min){
   return `${h}:${m}`;
 }
 
-// Cuántas ventanas de 45 min ocupa un servicio (hasta 45 min = 1; más de 45 = 2)
-function ventanasDe(duracion){
-  return Math.max(1, Math.ceil((Number(duracion) || INTERVALO_MIN) / INTERVALO_MIN));
+// Cuántas ventanas de 45 min ocupa un servicio:
+// "Color global" ocupa 2 (sin importar la duración); los demás ocupan 1.
+function ventanasDe(nombreServicio){
+  return (nombreServicio || "").toLowerCase().includes("color global") ? 2 : 1;
 }
 
 function renderSlots(){
@@ -688,7 +689,7 @@ function renderSlots(){
   grid.innerHTML = "";
   const servicio = servicios[estado.servicioId];
   const barbero = barberos[estado.barberoId];
-  const ocupa = ventanasDe(servicio.duracion) * INTERVALO_MIN;
+  const ocupa = ventanasDe(servicio.nombre) * INTERVALO_MIN;
   const diaSemana = new Date(estado.fecha + "T00:00:00").getDay();
   const horarioTienda = HORARIO_TIENDA[diaSemana];
   const inicio = Math.max(minutosDesde(barbero.apertura), minutosDesde(horarioTienda.apertura));
@@ -698,7 +699,7 @@ function renderSlots(){
     .filter(c => c.estado !== "cancelada")
     .map(c => {
       const ini = minutosDesde(c.hora);
-      return { ini, fin: ini + ventanasDe(c.duracion) * INTERVALO_MIN };
+      return { ini, fin: ini + ventanasDe(c.servicioNombre) * INTERVALO_MIN };
     });
 
   const bloqueos = Object.values(bloqueosDelDia)
