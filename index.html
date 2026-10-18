@@ -682,9 +682,10 @@ function minutosAHHMM(min){
 }
 
 // Cuántas ventanas de 45 min ocupa un servicio:
-// "Color global" ocupa 2 (sin importar la duración); los demás ocupan 1.
+// "Color global", "Corte + barba" y "Corte + barba + cejas" ocupan 2 (sin importar la duración); los demás ocupan 1.
 function ventanasDe(nombreServicio){
-  return (nombreServicio || "").toLowerCase().includes("color global") ? 2 : 1;
+  const n = (nombreServicio || "").toLowerCase();
+  return (n.includes("color global") || /corte\s*\+\s*barba/.test(n)) ? 2 : 1;
 }
 
 function renderSlots(){

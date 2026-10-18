@@ -1012,9 +1012,10 @@ const INTERVALO_MIN_ADMIN = 45; // ventanas de 45 min (igual que la página del 
 // Bloque extra al final del día (igual que la página del cliente)
 const BLOQUE_EXTRA_ADMIN = { 1: "20:30", 2: "20:30", 3: "20:30", 4: "20:30", 5: "20:30", 6: "20:30" };
 
-// "Color global" ocupa 2 ventanas (sin importar la duración); los demás ocupan 1.
+// "Color global", "Corte + barba" y "Corte + barba + cejas" ocupan 2 ventanas (sin importar la duración); los demás ocupan 1.
 function ventanasDeAdmin(nombreServicio){
-  return (nombreServicio || "").toLowerCase().includes("color global") ? 2 : 1;
+  const n = (nombreServicio || "").toLowerCase();
+  return (n.includes("color global") || /corte\s*\+\s*barba/.test(n)) ? 2 : 1;
 }
 
 function minutosDesdeAdmin(hhmm){
